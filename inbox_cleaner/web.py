@@ -1,7 +1,8 @@
 """Web interface module for inbox cleaner."""
 
-from fastapi import FastAPI, Request, Query
+from fastapi import FastAPI, Request, Query, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import BaseModel
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
@@ -10,6 +11,25 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List
 from .database import DatabaseManager
 from .analysis import EmailAnalyzer
+from .spam_rules import SpamRuleManager
+from .deletion import EmailDeletionManager
+
+
+# Pydantic models for API requests
+class SpamRuleCreate(BaseModel):
+    domain: Optional[str] = None
+    pattern: Optional[str] = None
+    rule_type: str = "domain"  # domain, subject, sender
+    action: str = "delete"
+    reason: str
+
+class DomainDeletionRequest(BaseModel):
+    domain: str
+    dry_run: bool = True
+
+class BulkDeletionRequest(BaseModel):
+    domains: List[str]
+    dry_run: bool = True
 
 
 def create_app(db_path: str = "./inbox_cleaner.db") -> FastAPI:
@@ -279,6 +299,214 @@ def create_app(db_path: str = "./inbox_cleaner.db") -> FastAPI:
                 "top_domains": {},
                 "error": str(e)
             }
+    
+    # Spam Rules Management Endpoints
+    @app.get("/spam-rules", response_class=HTMLResponse)
+    async def spam_rules_page(request: Request):
+        """Spam rules management page."""
+        return app.state.templates.TemplateResponse(
+            request, "spam_rules.html", {}
+        )
+    
+    @app.get("/api/spam-rules")
+    async def get_spam_rules():
+        """Get all spam rules."""
+        try:
+            rule_manager = SpamRuleManager()
+            rules = rule_manager.get_all_rules()
+            stats = rule_manager.get_deletion_stats()
+            
+            return {
+                "rules": rules,
+                "stats": stats
+            }
+        except Exception as e:
+            return {
+                "rules": [],
+                "stats": {},
+                "error": str(e)
+            }
+    
+    @app.post("/api/spam-rules", status_code=201)
+    async def create_spam_rule(rule_data: SpamRuleCreate):
+        """Create a new spam rule."""
+        try:
+            rule_manager = SpamRuleManager()
+            
+            if rule_data.rule_type == "domain":
+                if not rule_data.domain:
+                    raise HTTPException(status_code=400, detail="Domain required for domain rule")
+                rule = rule_manager.create_domain_rule(
+                    domain=rule_data.domain,
+                    action=rule_data.action,
+                    reason=rule_data.reason
+                )
+            elif rule_data.rule_type == "subject":
+                if not rule_data.pattern:
+                    raise HTTPException(status_code=400, detail="Pattern required for subject rule")
+                rule = rule_manager.create_subject_rule(
+                    pattern=rule_data.pattern,
+                    action=rule_data.action,
+                    reason=rule_data.reason
+                )
+            elif rule_data.rule_type == "sender":
+                if not rule_data.pattern:
+                    raise HTTPException(status_code=400, detail="Pattern required for sender rule")
+                rule = rule_manager.create_sender_rule(
+                    sender_pattern=rule_data.pattern,
+                    action=rule_data.action,
+                    reason=rule_data.reason
+                )
+            else:
+                raise HTTPException(status_code=400, detail="Invalid rule type")
+            
+            # Save rules to file
+            rule_manager.save_rules()
+            
+            return rule
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    @app.delete("/api/spam-rules/{rule_id}")
+    async def delete_spam_rule(rule_id: str):
+        """Delete a spam rule."""
+        try:
+            rule_manager = SpamRuleManager()
+            success = rule_manager.delete_rule(rule_id)
+            
+            if success:
+                rule_manager.save_rules()
+                return {"success": True, "message": "Rule deleted"}
+            else:
+                raise HTTPException(status_code=404, detail="Rule not found")
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    @app.put("/api/spam-rules/{rule_id}/toggle")
+    async def toggle_spam_rule(rule_id: str):
+        """Toggle spam rule active/inactive."""
+        try:
+            rule_manager = SpamRuleManager()
+            success = rule_manager.toggle_rule(rule_id)
+            
+            if success:
+                rule_manager.save_rules()
+                rule = rule_manager.get_rule_by_id(rule_id)
+                return {"success": True, "rule": rule}
+            else:
+                raise HTTPException(status_code=404, detail="Rule not found")
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    # Email Deletion Endpoints
+    @app.post("/api/delete/domain")
+    async def delete_emails_by_domain(deletion_request: DomainDeletionRequest):
+        """Delete all emails from a specific domain."""
+        try:
+            # Initialize deletion manager (without Gmail service for now)
+            deleter = EmailDeletionManager(gmail_service=None, db_path=app.state.db_path)
+            
+            results = deleter.delete_emails_by_domain(
+                domain=deletion_request.domain,
+                dry_run=deletion_request.dry_run
+            )
+            
+            return results
+            
+        except Exception as e:
+            return {
+                "error": str(e),
+                "domain": deletion_request.domain,
+                "total_found": 0,
+                "gmail_deleted": 0,
+                "database_deleted": 0
+            }
+    
+    @app.post("/api/delete/bulk")
+    async def bulk_delete_emails(deletion_request: BulkDeletionRequest):
+        """Bulk delete emails from multiple domains."""
+        try:
+            deleter = EmailDeletionManager(gmail_service=None, db_path=app.state.db_path)
+            
+            results = deleter.bulk_delete_by_domains(
+                domains=deletion_request.domains,
+                dry_run=deletion_request.dry_run
+            )
+            
+            return results
+            
+        except Exception as e:
+            return {
+                "error": str(e),
+                "domains": deletion_request.domains,
+                "total_found": 0,
+                "gmail_deleted": 0,
+                "database_deleted": 0
+            }
+    
+    @app.get("/api/delete/preview/{domain}")
+    async def preview_domain_deletion(domain: str):
+        """Preview what emails would be deleted from a domain."""
+        try:
+            deleter = EmailDeletionManager(gmail_service=None, db_path=app.state.db_path)
+            
+            preview = deleter.delete_emails_by_domain(domain, dry_run=True)
+            
+            return preview
+            
+        except Exception as e:
+            return {
+                "error": str(e),
+                "domain": domain,
+                "total_found": 0
+            }
+    
+    @app.get("/api/delete/stats")
+    async def get_deletion_statistics():
+        """Get statistics about potential deletions."""
+        try:
+            deleter = EmailDeletionManager(gmail_service=None, db_path=app.state.db_path)
+            
+            stats = deleter.get_deletion_statistics()
+            
+            return stats
+            
+        except Exception as e:
+            return {
+                "error": str(e),
+                "total_emails": 0,
+                "total_domains": 0
+            }
+    
+    @app.post("/api/apply-rule/{rule_id}")
+    async def apply_spam_rule(rule_id: str, dry_run: bool = Query(True)):
+        """Apply a spam rule to existing emails."""
+        try:
+            rule_manager = SpamRuleManager()
+            rule = rule_manager.get_rule_by_id(rule_id)
+            
+            if not rule:
+                raise HTTPException(status_code=404, detail="Rule not found")
+            
+            deleter = EmailDeletionManager(gmail_service=None, db_path=app.state.db_path)
+            
+            results = deleter.delete_emails_by_rule(rule, dry_run=dry_run)
+            
+            return results
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
     
     return app
 
