@@ -270,13 +270,13 @@ class DatabaseManager:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.execute(f"""
-                    SELECT message_id, thread_id, sender_domain, subject, 
+                    SELECT message_id, thread_id, sender_domain, subject,
                            date_received, labels, snippet, category
                     FROM emails_metadata
                     ORDER BY {order_by}
                     LIMIT ? OFFSET ?
                 """, (per_page, offset))
-                
+
                 results = []
                 for row in cursor.fetchall():
                     result = dict(row)
@@ -296,7 +296,7 @@ class DatabaseManager:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.execute("""
-                    SELECT message_id, thread_id, sender_domain, subject, 
+                    SELECT message_id, thread_id, sender_domain, subject,
                            date_received, labels, snippet, category
                     FROM emails_metadata
                     WHERE subject LIKE ? OR snippet LIKE ? OR sender_domain LIKE ?
@@ -315,7 +315,7 @@ class DatabaseManager:
                 return results
         except sqlite3.Error:
             return []
-    
+
     def count_search_results(self, query: str) -> int:
         """Count total search results for pagination."""
         try:

@@ -18,20 +18,20 @@
 <body>
     <div class="container">
         <h1>📧 Inbox Cleaner</h1>
-        
+
         <nav>
             <a href="/dashboard">Dashboard</a>
             <a href="/emails">Email List</a>
             <a href="/search">Search</a>
             <a href="/analysis">Analysis</a>
         </nav>
-        
+
         <div class="stats-grid">
             <div class="stat-card">
                 <h3>Total Emails</h3>
                 <div class="stat-number">{{ stats.total_emails or 0 }}</div>
             </div>
-            
+
             <div class="stat-card">
                 <h3>Status</h3>
                 <div class="stat-number">
@@ -43,7 +43,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div style="margin-top: 30px;">
             <h2>Quick Actions</h2>
             <p><a href="/emails">📋 View Email List</a></p>

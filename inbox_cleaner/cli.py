@@ -28,13 +28,13 @@ def auth(setup, status):
         if not config_path.exists():
             click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
             return
-        
+
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
-        
+
         gmail_config = config['gmail']
         authenticator = GmailAuthenticator(gmail_config)
-        
+
         if setup:
             click.echo("🔐 Setting up OAuth2 authentication...")
             try:
@@ -70,7 +70,7 @@ def auth(setup, status):
                     click.echo("❌ Authentication needed - run 'auth --setup'")
             except Exception as e:
                 click.echo(f"❌ Error: {e}")
-                
+
     except Exception as e:
         click.echo(f"❌ Configuration error: {e}")
 
@@ -88,29 +88,29 @@ def sync(initial, batch_size, with_progress, limit):
         if not config_path.exists():
             click.echo("❌ Error: config.yaml not found")
             return
-        
+
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
-        
+
         gmail_config = config['gmail']
         db_path = config['database']['path']
-        
+
         # Initialize components
         authenticator = GmailAuthenticator(gmail_config)
-        
+
         click.echo("🔐 Getting credentials...")
         try:
             credentials = authenticator.get_valid_credentials()
         except AuthenticationError:
             click.echo("❌ Authentication failed. Run 'auth --setup' first.")
             return
-        
+
         # Build Gmail service
         service = build('gmail', 'v1', credentials=credentials)
-        
+
         # Initialize extractor and database
         extractor = GmailExtractor(service, batch_size=batch_size)
-        
+
         with DatabaseManager(db_path) as db:
             if initial:
                 click.echo(f"📥 Starting initial sync (batch size: {batch_size})...")
@@ -118,21 +118,21 @@ def sync(initial, batch_size, with_progress, limit):
                     click.echo(f"📊 Limited to {limit} emails")
             else:
                 click.echo("📥 Syncing recent emails...")
-            
+
             def progress_callback(current: int, total: int) -> None:
                 if with_progress:
                     percentage = (current / total) * 100 if total > 0 else 0
                     click.echo(f"Progress: {current}/{total} ({percentage:.1f}%)", nl=False)
                     click.echo("\r", nl=False)
-            
+
             try:
                 emails = extractor.extract_all(
                     progress_callback=progress_callback if with_progress else None,
                     max_results=limit
                 )
-                
+
                 click.echo(f"\n📊 Extracted {len(emails)} emails")
-                
+
                 # Save to database
                 click.echo("💾 Saving to database...")
                 saved_count = 0
@@ -144,16 +144,16 @@ def sync(initial, batch_size, with_progress, limit):
                         # Skip duplicates silently
                         if "UNIQUE constraint" not in str(e):
                             click.echo(f"⚠️  Warning: {e}")
-                
+
                 click.echo(f"✅ Saved {saved_count} emails to database")
-                
+
                 # Show summary
                 stats = db.get_statistics()
                 click.echo(f"📈 Database now contains {stats['total_emails']} emails")
-                
+
             except Exception as e:
                 click.echo(f"❌ Sync failed: {e}")
-                
+
     except Exception as e:
         click.echo(f"❌ Error: {e}")
 
@@ -171,26 +171,26 @@ def web(start, port, host):
             if not config_path.exists():
                 click.echo("❌ Error: config.yaml not found")
                 return
-            
+
             with open(config_path, 'r') as f:
                 config = yaml.safe_load(f)
-            
+
             db_path = config['database']['path']
-            
+
             click.echo(f"🌐 Starting web interface...")
             click.echo(f"📍 Host: {host}:{port}")
             click.echo(f"💾 Database: {db_path}")
             click.echo(f"🌍 Open: http://{host}:{port}")
             click.echo("Press Ctrl+C to stop")
             click.echo()
-            
+
             # Import and start the web app
             from .web import create_app
             import uvicorn
-            
+
             app = create_app(db_path=db_path)
             uvicorn.run(app, host=host, port=port, log_level="info")
-            
+
         except KeyboardInterrupt:
             click.echo("\n🛑 Web interface stopped")
         except Exception as e:
@@ -210,7 +210,7 @@ def diagnose():
     """Run diagnostic tool to troubleshoot issues."""
     click.echo("🔍 Running diagnostics...")
     click.echo()
-    
+
     # Check config file
     config_path = Path("config.yaml")
     if config_path.exists():
@@ -226,7 +226,7 @@ def diagnose():
             click.echo(f"❌ Error reading config: {e}")
     else:
         click.echo("❌ config.yaml not found")
-    
+
     # Check authentication
     try:
         with open(config_path, 'r') as f:
@@ -234,7 +234,7 @@ def diagnose():
         gmail_config = config['gmail']
         authenticator = GmailAuthenticator(gmail_config)
         credentials = authenticator.load_credentials()
-        
+
         if credentials:
             click.echo("✅ Stored credentials found")
             if getattr(credentials, 'valid', False):
@@ -245,13 +245,13 @@ def diagnose():
             click.echo("❌ No stored credentials - run 'auth --setup'")
     except Exception as e:
         click.echo(f"❌ Authentication check failed: {e}")
-    
+
     # Check database
     try:
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
         db_path = config['database']['path']
-        
+
         if Path(db_path).exists():
             with DatabaseManager(db_path) as db:
                 stats = db.get_statistics()
@@ -260,7 +260,7 @@ def diagnose():
             click.echo("⚠️  Database not found - run 'sync' to create")
     except Exception as e:
         click.echo(f"❌ Database check failed: {e}")
-    
+
     click.echo()
     click.echo("💡 For comprehensive troubleshooting, run:")
     click.echo("   python diagnose_issues.py")
@@ -278,7 +278,7 @@ def status():
     """Show overall system status."""
     click.echo("📊 Inbox Cleaner Status")
     click.echo("=" * 25)
-    
+
     # Configuration
     config_path = Path("config.yaml")
     if config_path.exists():
@@ -286,7 +286,7 @@ def status():
     else:
         click.echo("❌ Configuration: Missing (run setup)")
         return
-    
+
     # Authentication
     try:
         with open(config_path, 'r') as f:
@@ -294,20 +294,20 @@ def status():
         gmail_config = config['gmail']
         authenticator = GmailAuthenticator(gmail_config)
         credentials = authenticator.load_credentials()
-        
+
         if credentials and getattr(credentials, 'valid', False):
             click.echo("✅ Authentication: Valid")
         else:
             click.echo("❌ Authentication: Setup needed")
     except Exception:
         click.echo("❌ Authentication: Error")
-    
+
     # Database
     try:
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
         db_path = config['database']['path']
-        
+
         if Path(db_path).exists():
             with DatabaseManager(db_path) as db:
                 stats = db.get_statistics()
@@ -316,7 +316,7 @@ def status():
             click.echo("⚠️  Database: Empty (run sync)")
     except Exception:
         click.echo("❌ Database: Error")
-    
+
     # Features
     click.echo()
     click.echo("📋 Available Features:")

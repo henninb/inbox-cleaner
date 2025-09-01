@@ -23,14 +23,14 @@
 <body>
     <div class="container">
         <h1>🔍 Search Emails</h1>
-        
+
         <nav>
             <a href="/dashboard">Dashboard</a>
             <a href="/emails">Email List</a>
             <a href="/search">Search</a>
             <a href="/analysis">Analysis</a>
         </nav>
-        
+
         <div class="search-form">
             <form onsubmit="performSearch(event)">
                 <input type="text" id="search-query" placeholder="Search by sender domain, subject keywords..." required>
@@ -38,32 +38,32 @@
             </form>
             <p>💡 <strong>Privacy note:</strong> Search works on metadata only (sender domains, subjects, dates)</p>
         </div>
-        
+
         <div id="search-results" class="search-results" style="display: none;">
             <div class="result-item">
                 <p>Enter a search query above to find emails</p>
             </div>
         </div>
     </div>
-    
+
     <script>
         async function performSearch(event) {
             event.preventDefault();
-            
+
             const query = document.getElementById('search-query').value;
             const resultsDiv = document.getElementById('search-results');
-            
+
             if (!query.trim()) {
                 return;
             }
-            
+
             resultsDiv.style.display = 'block';
             resultsDiv.innerHTML = '<div class="result-item"><p>Searching...</p></div>';
-            
+
             try {
                 const response = await fetch(`/api/emails/search?q=${encodeURIComponent(query)}`);
                 const data = await response.json();
-                
+
                 if (data.emails && data.emails.length > 0) {
                     resultsDiv.innerHTML = `
                         <div class="result-item">

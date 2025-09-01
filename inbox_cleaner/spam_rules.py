@@ -28,7 +28,7 @@ class SpamRuleManager:
             "created_at": datetime.now().isoformat(),
             "active": True
         }
-        
+
         self.rules.append(rule)
         return rule
 
@@ -43,7 +43,7 @@ class SpamRuleManager:
             "created_at": datetime.now().isoformat(),
             "active": True
         }
-        
+
         self.rules.append(rule)
         return rule
 
@@ -58,7 +58,7 @@ class SpamRuleManager:
             "created_at": datetime.now().isoformat(),
             "active": True
         }
-        
+
         self.rules.append(rule)
         return rule
 
@@ -67,21 +67,21 @@ class SpamRuleManager:
         for rule in self.rules:
             if not rule.get("active", True):
                 continue
-                
+
             if rule["type"] == "domain":
                 if email.get("sender_domain") == rule["domain"]:
                     return rule
-                    
+
             elif rule["type"] == "subject":
                 subject = email.get("subject", "")
                 if re.search(rule["pattern"], subject, re.IGNORECASE):
                     return rule
-                    
+
             elif rule["type"] == "sender":
                 sender = email.get("sender_email", "")
                 if re.search(rule["pattern"], sender, re.IGNORECASE):
                     return rule
-        
+
         return None
 
     def get_all_rules(self) -> List[Dict[str, Any]]:
@@ -150,7 +150,7 @@ class SpamRuleManager:
     def get_rules_by_domain(self, domain: str) -> List[Dict[str, Any]]:
         """Get all rules that target a specific domain."""
         return [
-            rule for rule in self.rules 
+            rule for rule in self.rules
             if rule.get("type") == "domain" and rule.get("domain") == domain
         ]
 
@@ -162,12 +162,12 @@ class SpamRuleManager:
             "deletion_rules": len([r for r in self.rules if r.get("action") == "delete"]),
             "rules_by_type": {}
         }
-        
+
         # Count by type
         for rule in self.rules:
             rule_type = rule.get("type", "unknown")
             if rule_type not in stats["rules_by_type"]:
                 stats["rules_by_type"][rule_type] = 0
             stats["rules_by_type"][rule_type] += 1
-        
+
         return stats

@@ -23,25 +23,25 @@
 <body>
     <div class="container">
         <h1>📋 Email List</h1>
-        
+
         <nav>
             <a href="/dashboard">Dashboard</a>
             <a href="/emails">Email List</a>
             <a href="/search">Search</a>
             <a href="/analysis">Analysis</a>
         </nav>
-        
+
         <div class="email-controls">
             <p>📊 Showing emails with privacy-safe metadata only</p>
             <p>🔒 No email content is displayed to protect your privacy</p>
         </div>
-        
+
         <div id="email-list" class="email-list">
             <div class="email-item">
                 <p>Loading emails...</p>
             </div>
         </div>
-        
+
         <div class="pagination">
             <a href="#" onclick="loadPage(1)">« First</a>
             <a href="#" onclick="loadPage(1)">‹ Previous</a>
@@ -50,13 +50,13 @@
             <a href="#" onclick="loadPage(1)">Last »</a>
         </div>
     </div>
-    
+
     <script>
         async function loadEmails(page = 1) {
             try {
                 const response = await fetch(`/api/emails?page=${page}&per_page=50`);
                 const data = await response.json();
-                
+
                 const emailList = document.getElementById('email-list');
                 if (data.emails && data.emails.length > 0) {
                     emailList.innerHTML = data.emails.map(email => `
@@ -73,11 +73,11 @@
                 document.getElementById('email-list').innerHTML = '<div class="email-item"><p>Error loading emails</p></div>';
             }
         }
-        
+
         function loadPage(page) {
             loadEmails(page);
         }
-        
+
         // Load emails on page load
         loadEmails();
     </script>
