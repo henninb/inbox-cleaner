@@ -161,18 +161,48 @@ def sync(initial, batch_size, with_progress, limit):
 @main.command()
 @click.option('--start', is_flag=True, help='Start web interface')
 @click.option('--port', default=8000, help='Port for web interface')
-def web(start, port):
+@click.option('--host', default='127.0.0.1', help='Host to bind to')
+def web(start, port, host):
     """Manage web interface."""
     if start:
-        click.echo(f"🌐 Starting web interface on port {port}...")
-        click.echo("❌ Web interface not yet implemented")
-        click.echo("This is a high priority feature in development")
-        click.echo("Current status: Phase 5 (Web Interface) - Not Started")
+        try:
+            # Load configuration
+            config_path = Path("config.yaml")
+            if not config_path.exists():
+                click.echo("❌ Error: config.yaml not found")
+                return
+            
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+            
+            db_path = config['database']['path']
+            
+            click.echo(f"🌐 Starting web interface...")
+            click.echo(f"📍 Host: {host}:{port}")
+            click.echo(f"💾 Database: {db_path}")
+            click.echo(f"🌍 Open: http://{host}:{port}")
+            click.echo("Press Ctrl+C to stop")
+            click.echo()
+            
+            # Import and start the web app
+            from .web import create_app
+            import uvicorn
+            
+            app = create_app(db_path=db_path)
+            uvicorn.run(app, host=host, port=port, log_level="info")
+            
+        except KeyboardInterrupt:
+            click.echo("\n🛑 Web interface stopped")
+        except Exception as e:
+            click.echo(f"❌ Error starting web interface: {e}")
     else:
-        click.echo("🌐 Web interface management...")
-        click.echo("❌ Web interface not yet implemented")
+        click.echo("🌐 Web interface management")
         click.echo("Available commands:")
-        click.echo("  --start    Start web interface (when implemented)")
+        click.echo("  --start    Start web interface")
+        click.echo("  --port     Specify port (default: 8000)")
+        click.echo("  --host     Specify host (default: 127.0.0.1)")
+        click.echo()
+        click.echo("Example: python -m inbox_cleaner.cli web --start --port 8080")
 
 
 @main.command()

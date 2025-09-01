@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email List - Inbox Cleaner</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        nav { margin-bottom: 30px; }
+        nav a { margin-right: 20px; text-decoration: none; color: #007bff; }
+        nav a:hover { text-decoration: underline; }
+        .email-controls { margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; }
+        .email-list { border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden; }
+        .email-item { padding: 15px; border-bottom: 1px solid #dee2e6; }
+        .email-item:last-child { border-bottom: none; }
+        .email-item:hover { background: #f8f9fa; }
+        .pagination { margin: 20px 0; text-align: center; }
+        .pagination a { margin: 0 5px; padding: 8px 12px; text-decoration: none; color: #007bff; border: 1px solid #dee2e6; border-radius: 4px; }
+        .pagination a:hover { background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 Email List</h1>
+        
+        <nav>
+            <a href="/dashboard">Dashboard</a>
+            <a href="/emails">Email List</a>
+            <a href="/search">Search</a>
+        </nav>
+        
+        <div class="email-controls">
+            <p>📊 Showing emails with privacy-safe metadata only</p>
+            <p>🔒 No email content is displayed to protect your privacy</p>
+        </div>
+        
+        <div id="email-list" class="email-list">
+            <div class="email-item">
+                <p>Loading emails...</p>
+            </div>
+        </div>
+        
+        <div class="pagination">
+            <a href="#" onclick="loadPage(1)">« First</a>
+            <a href="#" onclick="loadPage(1)">‹ Previous</a>
+            <span>Page 1 of 1</span>
+            <a href="#" onclick="loadPage(1)">Next ›</a>
+            <a href="#" onclick="loadPage(1)">Last »</a>
+        </div>
+    </div>
+    
+    <script>
+        async function loadEmails(page = 1) {
+            try {
+                const response = await fetch(`/api/emails?page=${page}&per_page=50`);
+                const data = await response.json();
+                
+                const emailList = document.getElementById('email-list');
+                if (data.emails && data.emails.length > 0) {
+                    emailList.innerHTML = data.emails.map(email => `
+                        <div class="email-item">
+                            <strong>From:</strong> ${email.sender_domain || 'Unknown'}<br>
+                            <strong>Subject:</strong> ${email.subject || 'No subject'}<br>
+                            <strong>Date:</strong> ${email.date_received || 'Unknown'}
+                        </div>
+                    `).join('');
+                } else {
+                    emailList.innerHTML = '<div class="email-item"><p>No emails found. Run sync command to load emails.</p></div>';
+                }
+            } catch (error) {
+                document.getElementById('email-list').innerHTML = '<div class="email-item"><p>Error loading emails</p></div>';
+            }
+        }
+        
+        function loadPage(page) {
+            loadEmails(page);
+        }
+        
+        // Load emails on page load
+        loadEmails();
+    </script>
+</body>
+</html>

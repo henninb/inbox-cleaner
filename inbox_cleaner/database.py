@@ -263,26 +263,70 @@ class DatabaseManager:
         except sqlite3.Error:
             return {}
 
-    def search_emails(self, query: str) -> List[Dict[str, Any]]:
-        """Search emails by content."""
+    def get_emails_paginated(self, page: int = 1, per_page: int = 50, order_by: str = "date_received DESC") -> List[Dict[str, Any]]:
+        """Get emails with pagination."""
         try:
+            offset = (page - 1) * per_page
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute(f"""
+                    SELECT message_id, thread_id, sender_domain, subject, 
+                           date_received, labels, snippet, category
+                    FROM emails_metadata
+                    ORDER BY {order_by}
+                    LIMIT ? OFFSET ?
+                """, (per_page, offset))
+                
+                results = []
+                for row in cursor.fetchall():
+                    result = dict(row)
+                    try:
+                        result['labels'] = json.loads(result['labels']) if result['labels'] else []
+                    except (json.JSONDecodeError, TypeError):
+                        result['labels'] = []
+                    results.append(result)
+                return results
+        except sqlite3.Error as e:
+            return []
+
+    def search_emails(self, query: str, page: int = 1, per_page: int = 50) -> List[Dict[str, Any]]:
+        """Search emails by content with pagination."""
+        try:
+            offset = (page - 1) * per_page
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.execute("""
-                    SELECT * FROM emails_metadata
-                    WHERE subject LIKE ? OR snippet LIKE ? OR content LIKE ?
+                    SELECT message_id, thread_id, sender_domain, subject, 
+                           date_received, labels, snippet, category
+                    FROM emails_metadata
+                    WHERE subject LIKE ? OR snippet LIKE ? OR sender_domain LIKE ?
                     ORDER BY date_received DESC
-                    LIMIT 100
-                """, (f'%{query}%', f'%{query}%', f'%{query}%'))
+                    LIMIT ? OFFSET ?
+                """, (f'%{query}%', f'%{query}%', f'%{query}%', per_page, offset))
 
                 results = []
                 for row in cursor.fetchall():
                     result = dict(row)
-                    result['labels'] = json.loads(result['labels'])
+                    try:
+                        result['labels'] = json.loads(result['labels']) if result['labels'] else []
+                    except (json.JSONDecodeError, TypeError):
+                        result['labels'] = []
                     results.append(result)
                 return results
         except sqlite3.Error:
             return []
+    
+    def count_search_results(self, query: str) -> int:
+        """Count total search results for pagination."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.execute("""
+                    SELECT COUNT(*) FROM emails_metadata
+                    WHERE subject LIKE ? OR snippet LIKE ? OR sender_domain LIKE ?
+                """, (f'%{query}%', f'%{query}%', f'%{query}%'))
+                return cursor.fetchone()[0]
+        except sqlite3.Error:
+            return 0
 
     def __enter__(self):
         """Context manager entry."""
