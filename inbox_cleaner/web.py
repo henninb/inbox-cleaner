@@ -9,6 +9,7 @@ import math
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from .database import DatabaseManager
+from .analysis import EmailAnalyzer
 
 
 def create_app(db_path: str = "./inbox_cleaner.db") -> FastAPI:
@@ -159,6 +160,125 @@ def create_app(db_path: str = "./inbox_cleaner.db") -> FastAPI:
         return app.state.templates.TemplateResponse(
             request, "search.html", {}
         )
+    
+    @app.get("/analysis", response_class=HTMLResponse)
+    async def analysis_page(request: Request):
+        """Email analysis page."""
+        return app.state.templates.TemplateResponse(
+            request, "analysis.html", {}
+        )
+    
+    @app.get("/api/analysis")
+    async def analysis_api():
+        """API endpoint for email analysis data."""
+        try:
+            analyzer = EmailAnalyzer(app.state.db_path)
+            
+            # Get comprehensive analysis
+            stats = analyzer.get_detailed_statistics()
+            suspicious = analyzer.detect_suspicious_emails()
+            cleanup_recs = analyzer.get_cleanup_recommendations()
+            
+            return {
+                "total_emails": stats.get("total_emails", 0),
+                "suspicious_count": len(suspicious),
+                "label_distribution": stats.get("label_distribution", {}),
+                "domain_distribution": stats.get("domain_distribution", {}),
+                "category_breakdown": stats.get("category_breakdown", {}),
+                "cleanup_recommendations": {
+                    "expired_emails": len(cleanup_recs.get("expired_emails", [])),
+                    "spam_candidates": len(cleanup_recs.get("spam_candidates", [])),
+                    "bulk_promotional": len(cleanup_recs.get("bulk_promotional", [])),
+                    "old_social": len(cleanup_recs.get("old_social", []))
+                },
+                "time_distribution": stats.get("time_distribution", {}),
+                "top_suspicious": suspicious[:10] if suspicious else []
+            }
+        except Exception as e:
+            return {
+                "total_emails": 0,
+                "suspicious_count": 0,
+                "error": str(e)
+            }
+    
+    @app.get("/api/analysis/cleanup")
+    async def cleanup_recommendations_api():
+        """API endpoint for cleanup recommendations."""
+        try:
+            analyzer = EmailAnalyzer(app.state.db_path)
+            recommendations = analyzer.get_cleanup_recommendations()
+            
+            # Add summary statistics
+            summary = {
+                "expired_emails": len(recommendations.get("expired_emails", [])),
+                "spam_candidates": len(recommendations.get("spam_candidates", [])),
+                "bulk_promotional": len(recommendations.get("bulk_promotional", [])),
+                "old_social": len(recommendations.get("old_social", []))
+            }
+            
+            return {
+                **recommendations,
+                "summary": summary,
+                "recommendations": [
+                    f"Found {summary['expired_emails']} expired USPS emails ready for deletion",
+                    f"Identified {summary['spam_candidates']} suspicious emails for review",
+                    f"Found {summary['bulk_promotional']} promotional emails for cleanup",
+                    f"Found {summary['old_social']} old social media notifications"
+                ]
+            }
+        except Exception as e:
+            return {
+                "expired_emails": [],
+                "spam_candidates": [],
+                "bulk_promotional": [],
+                "old_social": [],
+                "error": str(e)
+            }
+    
+    @app.get("/api/analysis/suspicious")
+    async def suspicious_emails_api(limit: int = Query(50, ge=1, le=500)):
+        """API endpoint for suspicious emails."""
+        try:
+            analyzer = EmailAnalyzer(app.state.db_path)
+            suspicious = analyzer.detect_suspicious_emails()
+            
+            return {
+                "suspicious_emails": suspicious[:limit],
+                "total_found": len(suspicious),
+                "spam_indicators": analyzer.get_spam_indicators()
+            }
+        except Exception as e:
+            return {
+                "suspicious_emails": [],
+                "total_found": 0,
+                "error": str(e)
+            }
+    
+    @app.get("/api/analysis/domains")
+    async def domain_analysis_api():
+        """API endpoint for domain distribution analysis."""
+        try:
+            analyzer = EmailAnalyzer(app.state.db_path)
+            domain_dist = analyzer.get_domain_distribution()
+            
+            # Sort by count and get top domains
+            sorted_domains = sorted(
+                domain_dist.items(), 
+                key=lambda x: x[1]["count"], 
+                reverse=True
+            )
+            
+            return {
+                "total_domains": len(domain_dist),
+                "top_domains": dict(sorted_domains[:20]),
+                "domain_stats": domain_dist
+            }
+        except Exception as e:
+            return {
+                "total_domains": 0,
+                "top_domains": {},
+                "error": str(e)
+            }
     
     return app
 

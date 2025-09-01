@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Analysis - Inbox Cleaner</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; background: #f8f9fa; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        nav { margin-bottom: 30px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        nav a { margin-right: 20px; text-decoration: none; color: #007bff; font-weight: 500; }
+        nav a:hover { text-decoration: underline; }
+        
+        .analysis-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin: 20px 0; }
+        .analysis-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .analysis-card h3 { margin-top: 0; color: #495057; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        
+        .stat-number { font-size: 2.5rem; font-weight: bold; color: #007bff; margin: 10px 0; }
+        .stat-label { color: #6c757d; font-size: 0.9rem; }
+        
+        .alert { padding: 15px; margin: 15px 0; border-radius: 8px; }
+        .alert-danger { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .alert-warning { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
+        .alert-success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .alert-info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        
+        .domain-list { max-height: 300px; overflow-y: auto; }
+        .domain-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .domain-item:last-child { border-bottom: none; }
+        
+        .suspicious-email { background: #fff5f5; border-left: 4px solid #e53e3e; padding: 15px; margin: 10px 0; border-radius: 4px; }
+        .risk-score { display: inline-block; padding: 4px 8px; border-radius: 12px; color: white; font-weight: bold; font-size: 0.8rem; }
+        .risk-high { background: #e53e3e; }
+        .risk-medium { background: #dd6b20; }
+        .risk-low { background: #38a169; }
+        
+        .cleanup-section { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 15px 0; }
+        .cleanup-item { padding: 10px; margin: 8px 0; background: white; border-radius: 6px; border-left: 4px solid #007bff; }
+        
+        .loading { text-align: center; padding: 40px; color: #6c757d; }
+        .error { text-align: center; padding: 40px; color: #dc3545; }
+        
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; text-decoration: none; display: inline-block; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .btn:hover { opacity: 0.9; }
+        
+        .category-breakdown { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .category-item { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
+        
+        .progress-bar { width: 100%; height: 20px; background: #e9ecef; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        .progress-fill { height: 100%; background: #007bff; transition: width 0.3s ease; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Email Analysis Dashboard</h1>
+        
+        <nav>
+            <a href="/dashboard">Dashboard</a>
+            <a href="/emails">Email List</a>
+            <a href="/search">Search</a>
+            <a href="/analysis">Analysis</a>
+        </nav>
+        
+        <div id="loading" class="loading">
+            <p>🔄 Analyzing your emails...</p>
+        </div>
+        
+        <div id="error" class="error" style="display: none;">
+            <p>❌ Error loading analysis data</p>
+        </div>
+        
+        <div id="analysis-content" style="display: none;">
+            
+            <!-- Overview Stats -->
+            <div class="analysis-grid">
+                <div class="analysis-card">
+                    <h3>📧 Email Overview</h3>
+                    <div class="stat-number" id="total-emails">0</div>
+                    <div class="stat-label">Total emails analyzed</div>
+                </div>
+                
+                <div class="analysis-card">
+                    <h3>⚠️ Suspicious Emails</h3>
+                    <div class="stat-number" id="suspicious-count" style="color: #dc3545;">0</div>
+                    <div class="stat-label">Potential spam/phishing</div>
+                </div>
+                
+                <div class="analysis-card">
+                    <h3>🏗️ Cleanup Opportunities</h3>
+                    <div class="stat-number" id="cleanup-count" style="color: #28a745;">0</div>
+                    <div class="stat-label">Emails ready for cleanup</div>
+                </div>
+                
+                <div class="analysis-card">
+                    <h3>🌐 Unique Domains</h3>
+                    <div class="stat-number" id="domain-count" style="color: #17a2b8;">0</div>
+                    <div class="stat-label">Different email sources</div>
+                </div>
+            </div>
+            
+            <!-- Suspicious Emails Section -->
+            <div class="analysis-card" style="margin: 20px 0;">
+                <h3>🚨 Most Suspicious Emails</h3>
+                <div id="suspicious-emails-list">
+                    <div class="loading">Loading suspicious emails...</div>
+                </div>
+            </div>
+            
+            <!-- Cleanup Recommendations -->
+            <div class="analysis-card">
+                <h3>🧹 Cleanup Recommendations</h3>
+                <div id="cleanup-recommendations">
+                    <div class="loading">Loading recommendations...</div>
+                </div>
+            </div>
+            
+            <!-- Domain Distribution -->
+            <div class="analysis-grid">
+                <div class="analysis-card">
+                    <h3>🌐 Top Email Domains</h3>
+                    <div id="domain-distribution" class="domain-list">
+                        <div class="loading">Loading domain data...</div>
+                    </div>
+                </div>
+                
+                <div class="analysis-card">
+                    <h3>📨 Email Categories</h3>
+                    <div id="category-breakdown" class="category-breakdown">
+                        <div class="loading">Loading categories...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Label Distribution -->
+            <div class="analysis-card">
+                <h3>🏷️ Label Distribution</h3>
+                <div id="label-distribution">
+                    <div class="loading">Loading label data...</div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+    
+    <script>
+        async function loadAnalysisData() {
+            try {
+                // Load main analysis data
+                const response = await fetch('/api/analysis');
+                const data = await response.json();
+                
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+                
+                // Update overview stats
+                document.getElementById('total-emails').textContent = data.total_emails || 0;
+                document.getElementById('suspicious-count').textContent = data.suspicious_count || 0;
+                
+                // Calculate cleanup total
+                const cleanupTotal = Object.values(data.cleanup_recommendations || {})
+                    .reduce((sum, count) => sum + (typeof count === 'number' ? count : 0), 0);
+                document.getElementById('cleanup-count').textContent = cleanupTotal;
+                
+                // Domain count
+                document.getElementById('domain-count').textContent = 
+                    Object.keys(data.domain_distribution || {}).length;
+                
+                // Show suspicious emails
+                displaySuspiciousEmails(data.top_suspicious || []);
+                
+                // Show domain distribution
+                displayDomainDistribution(data.domain_distribution || {});
+                
+                // Show category breakdown
+                displayCategoryBreakdown(data.category_breakdown || {});
+                
+                // Show label distribution
+                displayLabelDistribution(data.label_distribution || {});
+                
+                // Load cleanup recommendations
+                loadCleanupRecommendations();
+                
+                // Show content, hide loading
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('analysis-content').style.display = 'block';
+                
+            } catch (error) {
+                showError('Failed to load analysis data: ' + error.message);
+            }
+        }
+        
+        async function loadCleanupRecommendations() {
+            try {
+                const response = await fetch('/api/analysis/cleanup');
+                const data = await response.json();
+                
+                const container = document.getElementById('cleanup-recommendations');
+                if (data.error) {
+                    container.innerHTML = '<div class="error">Error loading recommendations</div>';
+                    return;
+                }
+                
+                let html = '';
+                (data.recommendations || []).forEach(rec => {
+                    html += `<div class="cleanup-item">${rec}</div>`;
+                });
+                
+                if (html === '') {
+                    html = '<div class="alert alert-success">✅ No cleanup recommendations at this time</div>';
+                }
+                
+                container.innerHTML = html;
+            } catch (error) {
+                document.getElementById('cleanup-recommendations').innerHTML = 
+                    '<div class="error">Failed to load recommendations</div>';
+            }
+        }
+        
+        function displaySuspiciousEmails(emails) {
+            const container = document.getElementById('suspicious-emails-list');
+            
+            if (emails.length === 0) {
+                container.innerHTML = '<div class="alert alert-success">✅ No suspicious emails detected</div>';
+                return;
+            }
+            
+            let html = '';
+            emails.slice(0, 5).forEach(email => {
+                const riskClass = email.risk_score >= 70 ? 'risk-high' : 
+                                 email.risk_score >= 40 ? 'risk-medium' : 'risk-low';
+                
+                html += `
+                    <div class="suspicious-email">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <strong>${email.sender_domain}</strong>
+                            <span class="risk-score ${riskClass}">Risk: ${email.risk_score}</span>
+                        </div>
+                        <div style="margin-bottom: 8px;">${email.subject || 'No subject'}</div>
+                        <div style="font-size: 0.9rem; color: #6c757d;">
+                            Indicators: ${email.indicators.join(', ')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function displayDomainDistribution(domains) {
+            const container = document.getElementById('domain-distribution');
+            const sortedDomains = Object.entries(domains)
+                .sort(([,a], [,b]) => b.count - a.count)
+                .slice(0, 10);
+            
+            if (sortedDomains.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">No domain data available</div>';
+                return;
+            }
+            
+            let html = '';
+            sortedDomains.forEach(([domain, data]) => {
+                html += `
+                    <div class="domain-item">
+                        <span style="font-weight: 500;">${domain}</span>
+                        <span style="color: #007bff; font-weight: bold;">${data.count} emails</span>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function displayCategoryBreakdown(categories) {
+            const container = document.getElementById('category-breakdown');
+            
+            if (Object.keys(categories).length === 0) {
+                container.innerHTML = '<div class="alert alert-info">No category data available</div>';
+                return;
+            }
+            
+            let html = '';
+            Object.entries(categories).forEach(([category, data]) => {
+                const displayName = category.charAt(0).toUpperCase() + category.slice(1);
+                html += `
+                    <div class="category-item">
+                        <div style="font-weight: bold; color: #495057;">${displayName}</div>
+                        <div style="font-size: 1.5rem; color: #007bff; margin: 8px 0;">${data.count}</div>
+                        <div style="font-size: 0.9rem; color: #6c757d;">emails</div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function displayLabelDistribution(labels) {
+            const container = document.getElementById('label-distribution');
+            const sortedLabels = Object.entries(labels)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 10);
+            
+            if (sortedLabels.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">No label data available</div>';
+                return;
+            }
+            
+            // Calculate total for percentages
+            const total = Object.values(labels).reduce((sum, count) => sum + count, 0);
+            
+            let html = '';
+            sortedLabels.forEach(([label, count]) => {
+                const percentage = Math.round((count / total) * 100);
+                html += `
+                    <div style="margin: 12px 0;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span style="font-weight: 500;">${label}</span>
+                            <span style="color: #007bff;">${count} (${percentage}%)</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${percentage}%;"></div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('error').innerHTML = `<p>❌ ${message}</p>`;
+        }
+        
+        // Load data on page load
+        loadAnalysisData();
+    </script>
+</body>
+</html>
