@@ -15,5 +15,5 @@ echo python real_demo.py --stats
 echo python -m inbox_cleaner.cli
 echo python real_demo.py --extract 4225
 echo python real_demo.py --extract 500
-ehoc pytest
+echo pytest
 exit 0

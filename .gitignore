@@ -72,3 +72,5 @@ test_small_cleanup.py
 test_delete.py
 quick_test.py
 fix_oauth_scopes.md
+*.xml
+*.db

@@ -33,7 +33,7 @@ def setup_auth():
         'client_secret': 'your-client-secret',
         'scopes': ['https://www.googleapis.com/auth/gmail.readonly'],
     }
-    
+
     print("🔐 Setting up Gmail authentication...")
     print("📝 Note: You need to:")
     print("   1. Go to Google Cloud Console")
@@ -41,7 +41,7 @@ def setup_auth():
     print("   3. Create OAuth2 credentials")
     print("   4. Update the config above with your credentials")
     print()
-    
+
     return GmailAuthenticator(config)
 
 
@@ -50,11 +50,11 @@ def test_authentication():
     try:
         authenticator = setup_auth()
         print("✅ Authentication configuration loaded")
-        
+
         # Note: This would normally prompt for OAuth2 flow
         print("🔄 Would normally start OAuth2 flow here...")
         print("   (Skipping in demo to avoid requiring real credentials)")
-        
+
         return True
     except Exception as e:
         print(f"❌ Authentication setup failed: {e}")
@@ -66,30 +66,30 @@ def extract_and_store_emails(num_emails=5):
     try:
         # Set up components
         authenticator = setup_auth()
-        
+
         # In a real scenario, this would use actual credentials
         print(f"🔄 Would authenticate and extract {num_emails} emails...")
         print("📧 Extracting email metadata (sender domains, subjects, etc.)")
         print("🔒 Hashing email addresses for privacy")
         print("💾 Storing in local SQLite database")
-        
+
         # Demo with temporary database
         with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
             db_path = f.name
-        
+
         print(f"📁 Database created at: {db_path}")
-        
+
         # Initialize database
         db = DatabaseManager(db_path)
         print("✅ Database initialized with proper schema")
-        
+
         # Show statistics
         stats = db.get_statistics()
         print(f"📊 Current database stats: {stats}")
-        
+
         print(f"🎉 Demo complete! Database ready at {db_path}")
         return True
-        
+
     except Exception as e:
         print(f"❌ Email extraction failed: {e}")
         return False
@@ -118,32 +118,32 @@ Examples:
     python demo.py --stats         # Show database stats
         """
     )
-    
+
     parser.add_argument(
-        '--auth-only', 
+        '--auth-only',
         action='store_true',
         help='Only test authentication setup'
     )
-    
+
     parser.add_argument(
         '--extract',
         type=int,
         metavar='N',
         help='Extract N emails and store in database'
     )
-    
+
     parser.add_argument(
         '--stats',
         action='store_true',
         help='Show database statistics'
     )
-    
+
     args = parser.parse_args()
-    
+
     print("🎯 Gmail Inbox Cleaner Demo")
     print("============================")
     print()
-    
+
     if args.auth_only:
         success = test_authentication()
     elif args.extract:
@@ -154,7 +154,7 @@ Examples:
     else:
         parser.print_help()
         success = True
-    
+
     if success:
         print("\n✨ Demo completed successfully!")
     else:

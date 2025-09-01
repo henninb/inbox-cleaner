@@ -40,11 +40,11 @@ try:
     messages = result.get('messages', [])
     estimate = result.get('resultSizeEstimate', 0)
     next_token = result.get('nextPageToken', 'None')
-    
+
     print(f"   Messages returned: {len(messages)}")
     print(f"   Result size estimate: {estimate}")
     print(f"   Next page token: {next_token}")
-    
+
     if messages:
         print(f"   First message ID: {messages[0]['id']}")
         print("   ✅ SUCCESS - API is working!")

@@ -32,7 +32,7 @@ You'll need an Anthropic API key for AI analysis:
 
 1. **Go to**: https://console.anthropic.com/
 2. **Sign up** for an account (free tier available)
-3. **Create an API key** 
+3. **Create an API key**
 4. **Copy the key** (starts with `sk-ant-...`)
 
 **Cost**: Very minimal - analyzing 4,225 emails costs ~$0.50-1.00
@@ -111,7 +111,7 @@ AI might suggest bulk actions like:
 ```bash
 # Search Gmail for these patterns:
 category:promotions older_than:6m    # Old promotional emails
-category:social older_than:3m        # Old social media notifications  
+category:social older_than:3m        # Old social media notifications
 from:noreply older_than:1y          # Old automated emails
 ```
 
@@ -138,7 +138,7 @@ After cleanup, prevent future clutter:
 ## 🔒 Privacy & Security Notes
 
 ### What's Safe:
-- ✅ **Domain names** (e.g., "amazon.com", "github.com") 
+- ✅ **Domain names** (e.g., "amazon.com", "github.com")
 - ✅ **Email subjects** (first 50-100 characters)
 - ✅ **Gmail labels** (INBOX, PROMOTIONS, etc.)
 - ✅ **Aggregated statistics** (email counts, patterns)

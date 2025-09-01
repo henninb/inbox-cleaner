@@ -19,51 +19,51 @@ def main():
     print("🔐 Gmail Inbox Cleaner - Credential Setup")
     print("=" * 50)
     print()
-    
+
     config_path = Path("config.yaml")
     if config_path.exists():
         response = input("⚠️  config.yaml already exists. Overwrite? (y/N): ")
         if response.lower() != 'y':
             print("❌ Setup cancelled")
             return
-    
+
     print("📝 Please provide your Gmail API credentials from Google Cloud Console:")
     print("   (If you haven't set them up yet, see the README for instructions)")
     print()
-    
+
     # Get credentials from user
     client_id = input("🔑 Client ID (ends with .googleusercontent.com): ").strip()
     if not client_id:
         print("❌ Client ID is required")
         return
-    
+
     client_secret = input("🔒 Client Secret: ").strip()
     if not client_secret:
         print("❌ Client Secret is required")
         return
-    
+
     print()
     print("⚙️  Additional settings:")
-    
+
     # Database path
     db_path = input("💾 Database path (press Enter for default './inbox_cleaner.db'): ").strip()
     if not db_path:
         db_path = "./inbox_cleaner.db"
-    
+
     # Batch size
     batch_input = input("📦 Batch size (press Enter for default 1000): ").strip()
     try:
         batch_size = int(batch_input) if batch_input else 1000
     except ValueError:
         batch_size = 1000
-    
+
     # Max emails per run
     max_input = input("🔢 Max emails per run (press Enter for default 5000): ").strip()
     try:
         max_emails = int(max_input) if max_input else 5000
     except ValueError:
         max_emails = 5000
-    
+
     # Create configuration
     config = {
         'gmail': {
@@ -79,12 +79,12 @@ def main():
             'max_emails_per_run': max_emails
         }
     }
-    
+
     # Save configuration
     try:
         with open(config_path, 'w') as f:
             yaml.safe_dump(config, f, default_flow_style=False, sort_keys=False)
-        
+
         print()
         print("✅ Configuration saved to config.yaml")
         print()
@@ -95,7 +95,7 @@ def main():
         print()
         print("🔒 Security note: Your credentials are stored locally in config.yaml")
         print("   Make sure to keep this file secure and don't share it!")
-        
+
     except Exception as e:
         print(f"❌ Error saving configuration: {e}")
 

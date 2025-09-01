@@ -43,28 +43,28 @@ SPAM_DOMAINS = {
 
 def print_cleanup_guide():
     """Print comprehensive manual cleanup guide."""
-    
+
     print("🎯 MANUAL GMAIL CLEANUP GUIDE")
     print("=" * 60)
     print()
     print("🎊 GREAT NEWS: We found unsubscribe links for all spam domains!")
     print("📊 Impact: Delete 1,490 emails (40% of your inbox)")
     print()
-    
+
     total_emails = sum(domain['count'] for domain in SPAM_DOMAINS.values())
     print(f"📧 Total spam emails to eliminate: {total_emails}")
     print()
-    
+
     print("🚀 STEP-BY-STEP CLEANUP PROCESS:")
     print("=" * 40)
     print()
-    
+
     for i, (domain, info) in enumerate(SPAM_DOMAINS.items(), 1):
         print(f"📌 DOMAIN {i}/4: {domain}")
         print(f"   📊 Emails: {info['count']}")
         print(f"   🏷️  Type: {info['type']}")
         print()
-        
+
         print("   ✋ STEP A: UNSUBSCRIBE FIRST")
         print("   Click these links to unsubscribe:")
         for j, link in enumerate(info['unsubscribe_links'], 1):
@@ -73,7 +73,7 @@ def print_cleanup_guide():
             else:
                 print(f"      {j}. 🔗 {link}")
         print()
-        
+
         print("   🛡️ STEP B: CREATE GMAIL FILTER")
         print("   1. In Gmail, click ⚙️ (gear icon) → 'See all settings'")
         print("   2. Click 'Filters and Blocked Addresses' tab")
@@ -84,7 +84,7 @@ def print_cleanup_guide():
         print("   7. Check ☑️ 'Also apply filter to matching conversations'")
         print("   8. Click 'Create filter'")
         print()
-        
+
         print("   🗑️ STEP C: DELETE EXISTING EMAILS (if filter didn't catch them)")
         print(f"   1. In Gmail search box, type: from:{domain}")
         print("   2. Press Enter")
@@ -92,10 +92,10 @@ def print_cleanup_guide():
         print("   4. Click 'Select all conversations that match this search'")
         print("   5. Click 🗑️ Delete button")
         print()
-        
+
         print("   " + "="*50)
         print()
-    
+
     print("📈 EXPECTED RESULTS AFTER CLEANUP:")
     print("=" * 40)
     print("✅ Unsubscribed from all 4 major spam sources")
@@ -104,11 +104,11 @@ def print_cleanup_guide():
     print("✅ Reduced inbox size by 40%")
     print("✅ Future emails from these domains will be auto-deleted")
     print()
-    
+
     print("🕒 TIME ESTIMATE: 15-20 minutes total")
     print("🏆 PAYOFF: Dramatically cleaner inbox forever")
     print()
-    
+
     print("💡 PRO TIPS:")
     print("=" * 20)
     print("• Do the unsubscribe FIRST before creating filters")
@@ -116,7 +116,7 @@ def print_cleanup_guide():
     print("• Check the 'Also apply to matching conversations' option")
     print("• This will handle both existing and future emails")
     print()
-    
+
     print("🎯 PRIORITY ORDER:")
     print("=" * 20)
     print("1. trulieve.com (464 emails) - Biggest impact")
@@ -124,7 +124,7 @@ def print_cleanup_guide():
     print("3. t.timberland.com (338 emails)")
     print("4. info.curaleaf.com (262 emails)")
     print()
-    
+
     print("🔍 VERIFICATION:")
     print("=" * 20)
     print("After completing all domains:")

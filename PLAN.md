@@ -70,7 +70,7 @@ A privacy-focused Gmail inbox cleanup tool that extracts only metadata (no email
 ```sql
 emails_metadata:
 - message_id (Gmail ID)
-- thread_id 
+- thread_id
 - sender_domain (e.g., "example.com")
 - sender_hash (hashed email for tracking, not reversible)
 - subject_keywords (extracted keywords only)
@@ -170,9 +170,9 @@ emails_metadata:
 3. **AI Interaction Example**
    ```
    User → Tool: "Help me clean up newsletters"
-   Tool → AI: "User has 150 emails from 15 newsletter domains, 
+   Tool → AI: "User has 150 emails from 15 newsletter domains,
               daily frequency, mostly unread, suggest cleanup strategy"
-   AI → Tool: "Recommend: unsubscribe from 8 inactive newsletters, 
+   AI → Tool: "Recommend: unsubscribe from 8 inactive newsletters,
               create 'Weekly Digest' label for 4 active ones, archive 2mo+ old"
    Tool → User: "AI suggests [actions]. Approve? (y/n/modify)"
    ```
@@ -214,7 +214,7 @@ emails_metadata:
 
 ## User Decisions Made
 ✅ **Batch processing** (user-initiated via CLI)
-✅ **Anthropic Claude** for AI service  
+✅ **Anthropic Claude** for AI service
 ✅ **Web interface** as primary UI
 ✅ **Content analysis** (local only)
 ✅ **TDD approach** for development

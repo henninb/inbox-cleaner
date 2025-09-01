@@ -5,7 +5,7 @@ A privacy-focused Gmail inbox management tool that uses AI assistance while keep
 ## 🎯 What It Does
 
 - **Extracts** email metadata (sender domains, subjects, dates, labels) from your Gmail
-- **Protects Privacy** by hashing email addresses with SHA-256 
+- **Protects Privacy** by hashing email addresses with SHA-256
 - **Stores Locally** in SQLite database (no cloud storage)
 - **Analyzes Patterns** to identify newsletters, promotions, and important emails
 - **AI-Ready** for future integration with Claude for cleanup recommendations
@@ -45,7 +45,7 @@ A privacy-focused Gmail inbox management tool that uses AI assistance while keep
    ```bash
    python setup_credentials.py
    ```
-   
+
    This will guide you through:
    - Google Cloud Console setup
    - OAuth2 credential creation
@@ -79,7 +79,7 @@ A privacy-focused Gmail inbox management tool that uses AI assistance while keep
 2. **Sign in** with your Google account (same one with Gmail you want to clean)
 3. **Create a new project**:
    - Click "Select a project" dropdown at top
-   - Click "NEW PROJECT" 
+   - Click "NEW PROJECT"
    - **Project name**: `gmail-inbox-cleaner` (or your choice)
    - **Location**: Leave as default
    - Click "CREATE"
@@ -117,7 +117,7 @@ A privacy-focused Gmail inbox management tool that uses AI assistance while keep
    - **Authorized domains**: Leave blank
    - **Developer contact information**: Your email
 4. **Click "SAVE AND CONTINUE"**
-5. **Scopes page**: 
+5. **Scopes page**:
    - Don't add any scopes
    - Click "SAVE AND CONTINUE"
 6. **Test users page**:
@@ -206,7 +206,7 @@ python real_demo.py --auth
 **This is normal for personal projects**
 
 **Solution**:
-- Click "Advanced" 
+- Click "Advanced"
 - Click "Go to Gmail Inbox Cleaner (unsafe)"
 - This warning appears because you haven't submitted for Google verification (not needed for personal use)
 
@@ -261,7 +261,7 @@ Example output:
    github.com: 45 emails
    linkedin.com: 38 emails
    amazon.com: 32 emails
-   
+
 💡 Cleanup Suggestions:
    📢 420 promotional emails could be archived
    👥 140 social emails could be organized
@@ -330,7 +330,7 @@ inbox-cleaner/
 ├── inbox_cleaner/          # Main package
 │   ├── __init__.py
 │   ├── auth.py            # OAuth2 authentication
-│   ├── extractor.py       # Gmail data extraction  
+│   ├── extractor.py       # Gmail data extraction
 │   ├── database.py        # SQLite operations
 │   └── cli.py             # Command-line interface
 ├── tests/                 # Comprehensive test suite
@@ -379,7 +379,7 @@ app:
 - Ensure Gmail API is enabled in Google Cloud Console
 - Try deleting stored credentials: check your system keyring for "inbox-cleaner" entries
 
-### "No emails found"  
+### "No emails found"
 - Check your Gmail account has emails
 - Verify you granted the necessary permissions during OAuth flow
 - Try a smaller number first: `--extract 5`
@@ -393,7 +393,7 @@ app:
 
 - [x] **Core Architecture** - Auth, extraction, database
 - [x] **Privacy Protection** - Email hashing, local storage
-- [x] **Batch Processing** - Handle large inboxes efficiently  
+- [x] **Batch Processing** - Handle large inboxes efficiently
 - [x] **Comprehensive Testing** - 90%+ test coverage
 - [ ] **AI Integration** - Anthropic Claude for recommendations
 - [ ] **Web Interface** - Review and approve actions
@@ -405,7 +405,7 @@ app:
 This project follows Test-Driven Development (TDD):
 
 1. Write failing tests first
-2. Implement minimal code to pass tests  
+2. Implement minimal code to pass tests
 3. Refactor for code quality
 4. Repeat
 
