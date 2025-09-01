@@ -1,0 +1,15 @@
+# Gmail Inbox Cleaner Configuration
+# Copy this file to config.yaml and fill in your credentials
+
+gmail:
+  client_id: "your-client-id.apps.googleusercontent.com"
+  client_secret: "your-client-secret"
+  scopes:
+    - "https://www.googleapis.com/auth/gmail.readonly"
+  
+database:
+  path: "./inbox_cleaner.db"
+  
+app:
+  batch_size: 1000
+  max_emails_per_run: 5000  # Safety limit for initial runs

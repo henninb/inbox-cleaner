@@ -1,0 +1,38 @@
+# Core dependencies
+google-auth==2.23.4
+google-auth-oauthlib==1.1.0
+google-auth-httplib2==0.1.1
+google-api-python-client==2.108.0
+
+# Data processing
+pandas==2.1.4
+numpy==1.24.4
+sqlite3  # Built into Python
+
+# NLP for content analysis (local only)
+spacy==3.7.2
+nltk==3.8.1
+
+# AI API
+anthropic==0.7.8
+
+# Web interface
+fastapi==0.104.1
+uvicorn==0.24.0
+jinja2==3.1.2
+python-multipart==0.0.6
+
+# CLI
+click==8.1.7
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+pytest-asyncio==0.21.1
+httpx==0.25.2  # For testing FastAPI
+
+# Development
+black==23.11.0
+flake8==6.1.0
+mypy==1.7.1
