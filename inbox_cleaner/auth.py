@@ -55,12 +55,12 @@ class GmailAuthenticator:
     def save_credentials(self, credentials: Credentials) -> None:
         """Save credentials to secure storage, preferring file storage in headless environments."""
         creds_json = credentials.to_json()
-        
+
         # In headless environments, use file storage directly
         if self._is_headless_environment():
             self._save_to_file(creds_json)
             return
-            
+
         # Try keyring first in GUI environments
         try:
             import keyring
@@ -70,7 +70,7 @@ class GmailAuthenticator:
             # Fallback to file-based storage
             print(f"⚠️  Keyring failed ({keyring_error}), using file storage")
             self._save_to_file(creds_json)
-    
+
     def _save_to_file(self, creds_json: str) -> None:
         """Save credentials to secure file."""
         try:
@@ -88,7 +88,7 @@ class GmailAuthenticator:
         # In headless environments, use file storage directly
         if self._is_headless_environment():
             return self._load_from_file()
-            
+
         # Try keyring first in GUI environments
         try:
             import keyring
@@ -102,10 +102,10 @@ class GmailAuthenticator:
                 return OAuth2Credentials.from_authorized_user_info(creds_data)
         except Exception:
             pass  # Continue to file fallback
-            
+
         # Fallback to file-based storage
         return self._load_from_file()
-    
+
     def _load_from_file(self) -> Optional[Credentials]:
         """Load credentials from file storage."""
         try:
@@ -120,18 +120,18 @@ class GmailAuthenticator:
                 return OAuth2Credentials.from_authorized_user_info(creds_data)
         except Exception:
             pass
-            
+
         return None
 
     def authenticate(self) -> Credentials:
         """Perform OAuth2 authentication flow."""
         try:
             flow = InstalledAppFlow.from_client_config(self.client_config, self.scopes)
-            
+
             # In headless environments or when browser fails, use manual flow
             if self._is_headless_environment():
                 return self._manual_auth_flow(flow)
-            
+
             # Try local server flow first
             try:
                 # Try different ports if 8080 is busy
@@ -150,19 +150,19 @@ class GmailAuthenticator:
                 print(f"⚠️  Browser authentication failed: {browser_error}")
                 print("🔄 Falling back to manual authentication...")
                 return self._manual_auth_flow(flow)
-                
+
         except Exception as e:
             raise AuthenticationError(f"Authentication failed: {e}")
-    
+
     def _manual_auth_flow(self, flow) -> Credentials:
         """Manual authentication flow for headless environments."""
         try:
             # Set the redirect URI from config
             flow.redirect_uri = self.redirect_uri
-            
+
             # Get the authorization URL
             auth_url, _ = flow.authorization_url(prompt='consent')
-            
+
             print("\n" + "="*80)
             print("🔗 MANUAL AUTHENTICATION REQUIRED")
             print("="*80)
@@ -176,10 +176,10 @@ class GmailAuthenticator:
             print("• Full URL: http://localhost:8080/?code=4/abc123...")
             print("• Just code: 4/abc123...")
             print("="*80)
-            
+
             # Get authorization code from user
             user_input = input("Enter the redirect URL or just the code: ").strip()
-            
+
             # Extract code from URL if full URL provided
             if user_input.startswith('http') and 'code=' in user_input:
                 import urllib.parse as urlparse
@@ -190,18 +190,18 @@ class GmailAuthenticator:
                     raise AuthenticationError("No 'code' parameter found in URL")
             else:
                 auth_code = user_input
-            
+
             if not auth_code:
                 raise AuthenticationError("No authorization code provided")
-            
+
             # Exchange code for credentials
             flow.fetch_token(code=auth_code)
             credentials = flow.credentials
-            
+
             self.save_credentials(credentials)
             print("✅ Authentication successful!")
             return credentials
-            
+
         except Exception as e:
             raise AuthenticationError(f"Manual authentication failed: {e}")
 

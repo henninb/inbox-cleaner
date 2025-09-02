@@ -12,7 +12,7 @@ PROFILE_FILE="$HOME/.profile"
 # Function to add environment variable to bash-style files
 add_headless_var_bash() {
     local file="$1"
-    
+
     if [ -f "$file" ]; then
         if ! grep -q "export HEADLESS=true" "$file"; then
             echo "" >> "$file"
@@ -31,7 +31,7 @@ add_headless_var_bash() {
 add_headless_var_fish() {
     # Create fish config directory if it doesn't exist
     mkdir -p "$FISH_CONFIG_DIR"
-    
+
     if [ -f "$FISH_CONFIG_FILE" ]; then
         if ! grep -q "set -gx HEADLESS true" "$FISH_CONFIG_FILE"; then
             echo "" >> "$FISH_CONFIG_FILE"
@@ -68,7 +68,7 @@ echo "  🐟 For Fish shell:"
 echo "    - Option 1: Run 'source ~/.config/fish/config.fish' (current session)"
 echo "    - Option 2: Start new fish terminal session"
 echo "  🐚 For Bash/other shells:"
-echo "    - Option 1: Run 'source ~/.bashrc' (current session)"  
+echo "    - Option 1: Run 'source ~/.bashrc' (current session)"
 echo "    - Option 2: Log out and log back in"
 echo ""
 echo "Or run any inbox-cleaner command with manual override:"

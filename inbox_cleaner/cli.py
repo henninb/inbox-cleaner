@@ -333,7 +333,7 @@ def status():
 @click.option('--execute', is_flag=True, help='Actually apply filters and delete emails')
 def apply_filters(dry_run, execute):
     """Apply existing auto-delete filters to clean the inbox."""
-    
+
     if not dry_run and not execute:
         dry_run = True  # Default behavior
     elif execute:
@@ -379,7 +379,7 @@ def apply_filters(dry_run, execute):
         # Display results
         click.echo(f"\n📋 Results:")
         click.echo(f"   Processed {results['processed_filters']} auto-delete filters.")
-        
+
         if dry_run:
             click.echo(f"   Would delete {results['total_deleted']} emails.")
             click.echo(f"\n💡 To execute these actions, run with --execute")
@@ -436,17 +436,17 @@ def list_filters():
         for i, f in enumerate(filters, 1):
             criteria = f.get('criteria', {})
             actions = f.get('action', {})
-            
+
             filter_id = f.get('id', 'unknown')[:15]
             click.echo(f"   Filter {i} (ID: {filter_id}...):")
-            
+
             if 'from' in criteria:
                 click.echo(f"      From: {criteria['from']}")
             if 'to' in criteria:
                 click.echo(f"      To: {criteria['to']}")
             if 'query' in criteria:
                 click.echo(f"      Query: {criteria['query']}")
-                
+
             if 'addLabelIds' in actions:
                 labels = actions['addLabelIds']
                 if 'TRASH' in labels:
@@ -466,13 +466,13 @@ def list_filters():
 @click.option('--execute', is_flag=True, help='Actually delete emails')
 def delete_emails(domain, dry_run, execute):
     """Delete emails from specified domain."""
-    
+
     # Handle conflicting flags - default to dry_run if neither is specified
     if not dry_run and not execute:
         dry_run = True  # Default behavior
     elif execute:
         dry_run = False
-    
+
     if not domain:
         click.echo("❌ Error: domain is required")
         return
@@ -510,7 +510,7 @@ def delete_emails(domain, dry_run, execute):
             click.echo("💡 DRY RUN MODE - No changes will be made")
         else:
             click.echo("⚠️ EXECUTE MODE - Changes will be made to Gmail")
-        
+
         click.echo(f"🎯 Processing domain: {domain}")
 
         # Execute deletion workflow
@@ -518,23 +518,23 @@ def delete_emails(domain, dry_run, execute):
 
         # Display results
         click.echo(f"\n📋 Results for {domain}:")
-        
+
         for step in results['steps']:
             step_name = step['step'].replace('_', ' ').title()
-            
+
             if step['success']:
                 click.echo(f"   ✅ {step_name}: Success")
-                
+
                 if step['step'] == 'delete_existing':
                     result = step['result']
                     found = result.get('found_count', 0)
                     deleted = result.get('deleted_count', 0)
-                    
+
                     if dry_run:
                         click.echo(f"      Would delete {found} existing emails")
                     else:
                         click.echo(f"      Deleted {deleted} of {found} emails")
-                        
+
             else:
                 click.echo(f"   ❌ {step_name}: Failed")
                 if 'message' in step:
@@ -551,7 +551,7 @@ def delete_emails(domain, dry_run, execute):
 @click.option('--domain', required=True, help='Domain to find unsubscribe links for')
 def find_unsubscribe(domain):
     """Find unsubscribe links in emails from specified domain."""
-    
+
     if not domain:
         click.echo("❌ Error: domain is required")
         return

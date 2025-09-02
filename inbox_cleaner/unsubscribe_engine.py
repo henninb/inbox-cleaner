@@ -332,7 +332,7 @@ class UnsubscribeEngine:
             parts.append(f"subject:{criteria['subject']}")
         if 'query' in criteria:
             return criteria['query']  # If a raw query is present, use it directly
-        
+
         return ' '.join(parts) if parts else None
 
     def apply_filters(self, dry_run: bool = True) -> Dict[str, Any]:
@@ -363,13 +363,13 @@ class UnsubscribeEngine:
             try:
                 result = self.service.users().messages().list(userId='me', q=query, maxResults=500).execute()
                 messages = result.get('messages', [])
-                
+
                 if not messages:
                     print("      No matching emails found.")
                     continue
 
                 message_ids = [msg['id'] for msg in messages]
-                
+
                 if dry_run:
                     print(f"      Would delete {len(message_ids)} emails.")
                     total_deleted += len(message_ids)
@@ -388,7 +388,7 @@ class UnsubscribeEngine:
                         ).execute()
                         deleted_count += len(batch_ids)
                         time.sleep(0.1)
-                    
+
                     print(f"      Deleted {deleted_count} emails.")
                     total_deleted += deleted_count
 

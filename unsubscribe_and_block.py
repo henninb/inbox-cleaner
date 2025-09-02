@@ -71,7 +71,7 @@ def main():
         epilog=f"""
 Malicious Spam/Phishing Domains to Delete:
   • jazzyue.com - Fake bonus scam with Unicode manipulation
-  • gpelectricos.com - Jackpot prize scam  
+  • gpelectricos.com - Jackpot prize scam
   • planetbrandy.com - Uses user name in fake bonus scam
   • mathewyoga.com - Jackpot winner scam
 
