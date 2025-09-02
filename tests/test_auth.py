@@ -36,22 +36,24 @@ class TestGmailAuthenticator:
         with pytest.raises(ValueError, match="client_id is required"):
             GmailAuthenticator(config)
 
-    @patch('inbox_cleaner.auth.keyring')
-    def test_save_credentials_success(self, mock_keyring, authenticator):
+    @patch.dict('sys.modules', {'keyring': MagicMock()})
+    def test_save_credentials_success(self, authenticator):
         """Test saving credentials to keyring."""
+        import keyring
         mock_creds = Mock()
         mock_creds.to_json.return_value = '{"token": "test_token"}'
 
         authenticator.save_credentials(mock_creds)
 
-        mock_keyring.set_password.assert_called_once_with(
+        keyring.set_password.assert_called_once_with(
             "inbox-cleaner", "gmail-token", '{"token": "test_token"}'
         )
 
-    @patch('inbox_cleaner.auth.keyring')
-    def test_load_credentials_success(self, mock_keyring, authenticator):
+    @patch.dict('sys.modules', {'keyring': MagicMock()})
+    def test_load_credentials_success(self, authenticator):
         """Test loading credentials from keyring."""
-        mock_keyring.get_password.return_value = '{"token": "test_token"}'
+        import keyring
+        keyring.get_password.return_value = '{"token": "test_token"}'
 
         with patch('inbox_cleaner.auth.OAuth2Credentials.from_authorized_user_info') as mock_from_info:
             mock_creds = Mock()
@@ -62,10 +64,11 @@ class TestGmailAuthenticator:
             assert result == mock_creds
             mock_from_info.assert_called_once()
 
-    @patch('inbox_cleaner.auth.keyring')
-    def test_load_credentials_not_found(self, mock_keyring, authenticator):
+    @patch.dict('sys.modules', {'keyring': MagicMock()})
+    def test_load_credentials_not_found(self, authenticator):
         """Test loading credentials when none exist."""
-        mock_keyring.get_password.return_value = None
+        import keyring
+        keyring.get_password.return_value = None
 
         result = authenticator.load_credentials()
 
