@@ -1,7 +1,7 @@
 """OAuth2 authentication module for Gmail API access."""
 
 import json
-import keyring
+import os
 from typing import Optional, Dict, Any
 from google.auth.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -42,17 +42,56 @@ class GmailAuthenticator:
             }
         }
 
+    def _is_headless_environment(self) -> bool:
+        """Detect if running in headless environment where keyring won't work."""
+        # Check for common headless indicators
+        return (
+            os.getenv('DISPLAY') is None or  # No X11 display
+            os.getenv('SSH_CLIENT') is not None or  # SSH connection
+            os.getenv('CI') is not None or  # Continuous Integration
+            os.getenv('HEADLESS') is not None  # Explicit headless flag
+        )
+
     def save_credentials(self, credentials: Credentials) -> None:
-        """Save credentials to secure storage."""
+        """Save credentials to secure storage, preferring file storage in headless environments."""
+        creds_json = credentials.to_json()
+        
+        # In headless environments, use file storage directly
+        if self._is_headless_environment():
+            self._save_to_file(creds_json)
+            return
+            
+        # Try keyring first in GUI environments
         try:
-            creds_json = credentials.to_json()
+            import keyring
             keyring.set_password("inbox-cleaner", "gmail-token", creds_json)
-        except Exception as e:
-            raise AuthenticationError(f"Failed to save credentials: {e}")
+            return
+        except Exception as keyring_error:
+            # Fallback to file-based storage
+            print(f"⚠️  Keyring failed ({keyring_error}), using file storage")
+            self._save_to_file(creds_json)
+    
+    def _save_to_file(self, creds_json: str) -> None:
+        """Save credentials to secure file."""
+        try:
+            from pathlib import Path
+            creds_file = Path("gmail_credentials.json")
+            with open(creds_file, 'w') as f:
+                f.write(creds_json)
+            os.chmod(creds_file, 0o600)  # Secure file permissions
+            print(f"✅ Credentials saved to {creds_file}")
+        except Exception as file_error:
+            raise AuthenticationError(f"Failed to save credentials to file: {file_error}")
 
     def load_credentials(self) -> Optional[Credentials]:
-        """Load credentials from secure storage."""
+        """Load credentials from secure storage, preferring file storage in headless environments."""
+        # In headless environments, use file storage directly
+        if self._is_headless_environment():
+            return self._load_from_file()
+            
+        # Try keyring first in GUI environments
         try:
+            import keyring
             creds_json = keyring.get_password("inbox-cleaner", "gmail-token")
             if creds_json:
                 creds_data = json.loads(creds_json)
@@ -61,10 +100,28 @@ class GmailAuthenticator:
                 if stored_client_id and stored_client_id != self.client_id:
                     return None
                 return OAuth2Credentials.from_authorized_user_info(creds_data)
-            return None
         except Exception:
-            # If anything goes wrong, return None to trigger re-auth
-            return None
+            pass  # Continue to file fallback
+            
+        # Fallback to file-based storage
+        return self._load_from_file()
+    
+    def _load_from_file(self) -> Optional[Credentials]:
+        """Load credentials from file storage."""
+        try:
+            from pathlib import Path
+            creds_file = Path("gmail_credentials.json")
+            if creds_file.exists():
+                creds_json = creds_file.read_text()
+                creds_data = json.loads(creds_json)
+                stored_client_id = creds_data.get('client_id')
+                if stored_client_id and stored_client_id != self.client_id:
+                    return None
+                return OAuth2Credentials.from_authorized_user_info(creds_data)
+        except Exception:
+            pass
+            
+        return None
 
     def authenticate(self) -> Credentials:
         """Perform OAuth2 authentication flow."""

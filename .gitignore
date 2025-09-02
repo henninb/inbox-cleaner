@@ -74,3 +74,4 @@ quick_test.py
 fix_oauth_scopes.md
 *.xml
 *.db
+gmail_credentials.json

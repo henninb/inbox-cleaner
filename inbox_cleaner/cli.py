@@ -8,6 +8,7 @@ from googleapiclient.discovery import build
 from .auth import GmailAuthenticator, AuthenticationError
 from .database import DatabaseManager
 from .extractor import GmailExtractor
+from .unsubscribe_engine import UnsubscribeEngine
 
 
 @click.group()
@@ -325,6 +326,223 @@ def status():
     click.echo("  ✅ Command-line interface")
     click.echo("  ❌ Web interface (in development)")
     click.echo("  ❌ AI-powered cleanup (in development)")
+
+
+@main.command('list-filters')
+def list_filters():
+    """List existing Gmail filters."""
+    try:
+        # Load configuration
+        config_path = Path("config.yaml")
+        if not config_path.exists():
+            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
+            raise click.ClickException("config.yaml not found")
+
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        gmail_config = config['gmail']
+        db_path = config['database']['path']
+
+        # Initialize components
+        authenticator = GmailAuthenticator(gmail_config)
+
+        click.echo("🔐 Getting credentials...")
+        try:
+            credentials = authenticator.get_valid_credentials()
+        except AuthenticationError as e:
+            click.echo(f"❌ Authentication failed: {e}")
+            click.echo("Run 'auth --setup' first.")
+            raise click.ClickException("Authentication failed")
+
+        # Build Gmail service
+        service = build('gmail', 'v1', credentials=credentials)
+        db_manager = DatabaseManager(db_path)
+        unsubscribe_engine = UnsubscribeEngine(service, db_manager)
+
+        click.echo("📋 Existing Gmail Filters:")
+        click.echo()
+
+        # Get filters
+        filters = unsubscribe_engine.list_existing_filters()
+
+        if not filters:
+            click.echo("   No filters found")
+            return
+
+        for i, f in enumerate(filters, 1):
+            criteria = f.get('criteria', {})
+            actions = f.get('action', {})
+            
+            filter_id = f.get('id', 'unknown')[:15]
+            click.echo(f"   Filter {i} (ID: {filter_id}...):")
+            
+            if 'from' in criteria:
+                click.echo(f"      From: {criteria['from']}")
+            if 'to' in criteria:
+                click.echo(f"      To: {criteria['to']}")
+            if 'query' in criteria:
+                click.echo(f"      Query: {criteria['query']}")
+                
+            if 'addLabelIds' in actions:
+                labels = actions['addLabelIds']
+                if 'TRASH' in labels:
+                    click.echo(f"      Action: Auto-delete")
+                else:
+                    click.echo(f"      Action: Add labels {labels}")
+            click.echo()
+
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
+        raise click.ClickException(str(e))
+
+
+@main.command('delete-emails')
+@click.option('--domain', required=True, help='Domain to delete emails from')
+@click.option('--dry-run', is_flag=True, help='Preview actions without making changes')
+@click.option('--execute', is_flag=True, help='Actually delete emails')
+def delete_emails(domain, dry_run, execute):
+    """Delete emails from specified domain."""
+    
+    # Handle conflicting flags - default to dry_run if neither is specified
+    if not dry_run and not execute:
+        dry_run = True  # Default behavior
+    elif execute:
+        dry_run = False
+    
+    if not domain:
+        click.echo("❌ Error: domain is required")
+        return
+
+    try:
+        # Load configuration
+        config_path = Path("config.yaml")
+        if not config_path.exists():
+            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
+            return
+
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        gmail_config = config['gmail']
+        db_path = config['database']['path']
+
+        # Initialize components
+        authenticator = GmailAuthenticator(gmail_config)
+
+        click.echo("🔐 Getting credentials...")
+        try:
+            credentials = authenticator.get_valid_credentials()
+        except AuthenticationError as e:
+            click.echo(f"❌ Authentication failed: {e}")
+            click.echo("Run 'auth --setup' first.")
+            return
+
+        # Build Gmail service
+        service = build('gmail', 'v1', credentials=credentials)
+        db_manager = DatabaseManager(db_path)
+        unsubscribe_engine = UnsubscribeEngine(service, db_manager)
+
+        if dry_run:
+            click.echo("💡 DRY RUN MODE - No changes will be made")
+        else:
+            click.echo("⚠️ EXECUTE MODE - Changes will be made to Gmail")
+        
+        click.echo(f"🎯 Processing domain: {domain}")
+
+        # Execute deletion workflow
+        results = unsubscribe_engine.unsubscribe_and_block_domain(domain, dry_run=dry_run)
+
+        # Display results
+        click.echo(f"\n📋 Results for {domain}:")
+        
+        for step in results['steps']:
+            step_name = step['step'].replace('_', ' ').title()
+            
+            if step['success']:
+                click.echo(f"   ✅ {step_name}: Success")
+                
+                if step['step'] == 'delete_existing':
+                    result = step['result']
+                    found = result.get('found_count', 0)
+                    deleted = result.get('deleted_count', 0)
+                    
+                    if dry_run:
+                        click.echo(f"      Would delete {found} existing emails")
+                    else:
+                        click.echo(f"      Deleted {deleted} of {found} emails")
+                        
+            else:
+                click.echo(f"   ❌ {step_name}: Failed")
+                if 'message' in step:
+                    click.echo(f"      {step['message']}")
+
+        if dry_run:
+            click.echo(f"\n💡 To execute these actions, run with --execute")
+
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
+
+
+@main.command('find-unsubscribe')
+@click.option('--domain', required=True, help='Domain to find unsubscribe links for')
+def find_unsubscribe(domain):
+    """Find unsubscribe links in emails from specified domain."""
+    
+    if not domain:
+        click.echo("❌ Error: domain is required")
+        return
+
+    try:
+        # Load configuration
+        config_path = Path("config.yaml")
+        if not config_path.exists():
+            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
+            return
+
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        gmail_config = config['gmail']
+        db_path = config['database']['path']
+
+        # Initialize components
+        authenticator = GmailAuthenticator(gmail_config)
+
+        click.echo("🔐 Getting credentials...")
+        try:
+            credentials = authenticator.get_valid_credentials()
+        except AuthenticationError as e:
+            click.echo(f"❌ Authentication failed: {e}")
+            click.echo("Run 'auth --setup' first.")
+            return
+
+        # Build Gmail service
+        service = build('gmail', 'v1', credentials=credentials)
+        db_manager = DatabaseManager(db_path)
+        unsubscribe_engine = UnsubscribeEngine(service, db_manager)
+
+        click.echo(f"🔍 Finding unsubscribe links for: {domain}")
+
+        # Find unsubscribe links
+        unsubscribe_info = unsubscribe_engine.find_unsubscribe_links(domain)
+
+        if not unsubscribe_info:
+            click.echo("❌ No unsubscribe links found")
+            return
+
+        click.echo(f"\n📧 Found unsubscribe links:")
+        for info in unsubscribe_info:
+            click.echo(f"\n   Email: {info['subject']}")
+            click.echo(f"   Links found:")
+            for i, link in enumerate(info['unsubscribe_links'][:3], 1):  # Show first 3
+                if link.startswith('mailto:'):
+                    click.echo(f"      {i}. 📧 {link}")
+                else:
+                    click.echo(f"      {i}. 🔗 {link}")
+
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
 
 
 if __name__ == "__main__":

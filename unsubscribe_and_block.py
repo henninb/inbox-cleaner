@@ -26,12 +26,12 @@ from inbox_cleaner.database import DatabaseManager
 from inbox_cleaner.unsubscribe_engine import UnsubscribeEngine
 
 
-# Your specific spam domains
+# Malicious spam/phishing domains to delete
 SPAM_DOMAINS = {
-    'trulieve.com': {'count': 464, 'type': 'Cannabis dispensary spam'},
-    'email.totaltools.com.au': {'count': 426, 'type': 'Australian tool retailer spam'},
-    't.timberland.com': {'count': 338, 'type': 'Clothing retailer excessive promos'},
-    'info.curaleaf.com': {'count': 262, 'type': 'Cannabis company spam'}
+    'jazzyue.com': {'count': 1, 'type': 'Fake bonus scam with Unicode manipulation'},
+    'gpelectricos.com': {'count': 1, 'type': 'Jackpot prize scam'},
+    'planetbrandy.com': {'count': 1, 'type': 'Uses user name in fake bonus scam'},
+    'mathewyoga.com': {'count': 1, 'type': 'Jackpot winner scam'}
 }
 
 
@@ -69,22 +69,21 @@ def main():
         description="Unsubscribe and block spam domains",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
-Spam Domains to Process:
-  • trulieve.com - 464 emails (Cannabis dispensary)
-  • email.totaltools.com.au - 426 emails (Tool retailer)
-  • t.timberland.com - 338 emails (Clothing promos)
-  • info.curaleaf.com - 262 emails (Cannabis company)
+Malicious Spam/Phishing Domains to Delete:
+  • jazzyue.com - Fake bonus scam with Unicode manipulation
+  • gpelectricos.com - Jackpot prize scam  
+  • planetbrandy.com - Uses user name in fake bonus scam
+  • mathewyoga.com - Jackpot winner scam
 
 This tool will:
-  1. Find unsubscribe links in recent emails
-  2. Create Gmail filters to auto-delete future emails
-  3. Delete existing emails from these domains
-  4. Show you unsubscribe links to manually unsubscribe
+  1. Create Gmail filters to auto-delete future emails
+  2. Delete existing emails from these malicious domains
+  3. Block future phishing/scam attempts
 
 Examples:
   python unsubscribe_and_block.py --dry-run
   python unsubscribe_and_block.py --execute
-  python unsubscribe_and_block.py --domain trulieve.com --dry-run
+  python unsubscribe_and_block.py --domain jazzyue.com --dry-run
         """
     )
 
@@ -190,18 +189,18 @@ Examples:
         domains_to_process = list(SPAM_DOMAINS.keys())
     else:
         # Default: show help and recommendations
-        print("\n🎯 SPAM DOMAIN ANALYSIS:")
+        print("\n🎯 MALICIOUS DOMAIN ANALYSIS:")
         total_emails = 0
         for domain, info in SPAM_DOMAINS.items():
             print(f"   • {domain:30} {info['count']:3} emails - {info['type']}")
             total_emails += info['count']
 
-        print(f"\n📊 Total spam emails: {total_emails}")
+        print(f"\n📊 Total malicious emails: {total_emails}")
         print(f"\n💡 RECOMMENDATIONS:")
-        print(f"   1. Find unsubscribe links: --find-unsubscribe-only --all-domains")
-        print(f"   2. Preview full process: --all-domains --dry-run")
-        print(f"   3. Execute full process: --all-domains --execute")
-        print(f"   4. Process one domain: --domain trulieve.com --dry-run")
+        print(f"   1. Preview deletion process: --all-domains --dry-run")
+        print(f"   2. Delete all malicious emails: --all-domains --execute")
+        print(f"   3. Process one domain: --domain jazzyue.com --dry-run")
+        print(f"   4. Force execution (no prompts): --all-domains --execute --force")
         return
 
     dry_run = not args.execute
@@ -218,17 +217,18 @@ Examples:
         print(f"🏷️  Type: {info['type']}")
 
         if args.find_unsubscribe_only:
-            # Only find unsubscribe links
-            print("\n🔍 Finding unsubscribe links...")
-            unsubscribe_info = unsubscribe_engine.find_unsubscribe_links(domain)
-            print_unsubscribe_links(unsubscribe_info)
+            # Skip unsubscribe for malicious domains - just note them
+            print("\n⚠️  MALICIOUS DOMAIN - DO NOT UNSUBSCRIBE")
+            print("   Unsubscribing from malicious domains confirms your email is active")
+            print("   and may result in more spam. These emails will be deleted instead.")
             continue
 
         # Full process: unsubscribe + filter + delete
         if not dry_run and not args.force:
-            response = input(f"\n⚠️  Process {domain}? This will:\n"
+            response = input(f"\n⚠️  Delete malicious emails from {domain}? This will:\n"
                            f"   • Create Gmail filter to auto-delete future emails\n"
-                           f"   • Delete existing ~{info['count']} emails\n"
+                           f"   • Delete existing ~{info['count']} malicious emails\n"
+                           f"   • Protect you from future phishing attempts\n"
                            f"   Continue? (yes/no): ")
             if response.lower() != 'yes':
                 print("❌ Skipped")
@@ -278,12 +278,12 @@ Examples:
     print(f"\n🎉 Processing complete!")
 
     if not args.find_unsubscribe_only:
-        print(f"\n📧 MANUAL UNSUBSCRIBE STEP:")
-        print(f"The unsubscribe links found above should be clicked manually.")
-        print(f"This ensures you're properly removed from their mailing lists.")
-        print(f"\n🛡️ FUTURE PROTECTION:")
+        print(f"\n🛡️ MALICIOUS DOMAIN PROTECTION:")
         print(f"Gmail filters have been {'created' if not dry_run else 'previewed'} to automatically")
-        print(f"delete future emails from these spam domains.")
+        print(f"delete future emails from these malicious domains.")
+        print(f"\n⚠️  SECURITY NOTE:")
+        print(f"Do NOT unsubscribe from malicious domains as this confirms your email")
+        print(f"is active and may result in more phishing attempts.")
 
     if dry_run:
         print(f"\n💡 To execute these actions, run with --execute")

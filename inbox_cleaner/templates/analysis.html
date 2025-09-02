@@ -115,6 +115,33 @@
                 <div id="cleanup-recommendations">
                     <div class="loading">Loading recommendations...</div>
                 </div>
+
+                <!-- Cleanup Actions -->
+                <div id="cleanup-actions" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #dee2e6;">
+                    <h4>🚀 Take Action</h4>
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px;">
+                        <button class="btn btn-danger" onclick="bulkDeleteExpired()">
+                            🗑️ Delete Expired Emails
+                        </button>
+                        <button class="btn btn-warning" onclick="createSpamRules()">
+                            🛡️ Create Spam Rules
+                        </button>
+                        <button class="btn btn-primary" onclick="viewSpamRules()">
+                            ⚙️ Manage Spam Rules
+                        </button>
+                        <button class="btn btn-warning" onclick="bulkDeletePromotional()">
+                            📢 Delete Promotional Emails
+                        </button>
+                    </div>
+
+                    <!-- Quick Domain Actions -->
+                    <div id="quick-domain-actions" style="margin-top: 15px;">
+                        <h5>Quick Domain Cleanup</h5>
+                        <div id="domain-cleanup-buttons" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">
+                            <!-- Dynamic domain buttons will be added here -->
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Domain Distribution -->
