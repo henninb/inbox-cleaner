@@ -1,7 +1,7 @@
 """Tests for OAuth2 authentication module."""
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, mock_open
 from pathlib import Path
 
 from inbox_cleaner.auth import GmailAuthenticator, AuthenticationError
@@ -37,8 +37,9 @@ class TestGmailAuthenticator:
             GmailAuthenticator(config)
 
     @patch.dict('sys.modules', {'keyring': MagicMock()})
+    @patch.dict('os.environ', {'DISPLAY': ':0'}, clear=True)  # Simulate GUI environment with display
     def test_save_credentials_success(self, authenticator):
-        """Test saving credentials to keyring."""
+        """Test saving credentials to keyring in GUI environment."""
         import keyring
         mock_creds = Mock()
         mock_creds.to_json.return_value = '{"token": "test_token"}'
@@ -48,6 +49,22 @@ class TestGmailAuthenticator:
         keyring.set_password.assert_called_once_with(
             "inbox-cleaner", "gmail-token", '{"token": "test_token"}'
         )
+
+    @patch.dict('os.environ', {'HEADLESS': 'true'})  # Simulate headless environment
+    @patch('builtins.open', mock_open())
+    @patch('os.chmod')
+    @patch('pathlib.Path')
+    def test_save_credentials_headless(self, mock_path, mock_chmod, authenticator):
+        """Test saving credentials to file in headless environment."""
+        mock_creds = Mock()
+        mock_creds.to_json.return_value = '{"token": "test_token"}'
+        mock_file_path = Mock()
+        mock_path.return_value = mock_file_path
+
+        authenticator.save_credentials(mock_creds)
+
+        # Should create file and set permissions
+        mock_chmod.assert_called_once_with(mock_file_path, 0o600)
 
     @patch.dict('sys.modules', {'keyring': MagicMock()})
     def test_load_credentials_success(self, authenticator):
@@ -76,8 +93,9 @@ class TestGmailAuthenticator:
 
     @patch('inbox_cleaner.auth.InstalledAppFlow')
     @patch.object(GmailAuthenticator, 'save_credentials')
-    def test_authenticate_new_user(self, mock_save, mock_flow_class, authenticator):
-        """Test authentication flow for new user."""
+    @patch.object(GmailAuthenticator, '_is_headless_environment', return_value=False)
+    def test_authenticate_new_user(self, mock_headless, mock_save, mock_flow_class, authenticator):
+        """Test authentication flow for new user in GUI environment."""
         # Mock the OAuth flow
         mock_flow = Mock()
         mock_flow_class.from_client_config.return_value = mock_flow
@@ -87,6 +105,46 @@ class TestGmailAuthenticator:
         result = authenticator.authenticate()
 
         assert result == mock_creds
+        mock_save.assert_called_once_with(mock_creds)
+
+    @patch('inbox_cleaner.auth.InstalledAppFlow')
+    @patch.object(GmailAuthenticator, 'save_credentials')
+    @patch.object(GmailAuthenticator, '_is_headless_environment', return_value=True)
+    @patch('builtins.input', return_value='test_auth_code')
+    def test_authenticate_manual_headless(self, mock_input, mock_headless, mock_save, mock_flow_class, authenticator):
+        """Test authentication flow in headless environment with manual code entry."""
+        # Mock the OAuth flow
+        mock_flow = Mock()
+        mock_flow_class.from_client_config.return_value = mock_flow
+        mock_flow.authorization_url.return_value = ('https://test-auth-url.com', 'state')
+        mock_creds = Mock()
+        mock_flow.credentials = mock_creds
+
+        result = authenticator.authenticate()
+
+        assert result == mock_creds
+        mock_flow.authorization_url.assert_called_once_with(prompt='consent')
+        mock_flow.fetch_token.assert_called_once_with(code='test_auth_code')
+        mock_save.assert_called_once_with(mock_creds)
+
+    @patch('inbox_cleaner.auth.InstalledAppFlow')
+    @patch.object(GmailAuthenticator, 'save_credentials')
+    @patch.object(GmailAuthenticator, '_is_headless_environment', return_value=True)
+    @patch('builtins.input', return_value='http://localhost:8080/?state=test&code=4/test_code&scope=gmail')
+    def test_authenticate_manual_url_parsing(self, mock_input, mock_headless, mock_save, mock_flow_class, authenticator):
+        """Test authentication flow with full redirect URL parsing."""
+        # Mock the OAuth flow
+        mock_flow = Mock()
+        mock_flow_class.from_client_config.return_value = mock_flow
+        mock_flow.authorization_url.return_value = ('https://test-auth-url.com', 'state')
+        mock_creds = Mock()
+        mock_flow.credentials = mock_creds
+
+        result = authenticator.authenticate()
+
+        assert result == mock_creds
+        mock_flow.authorization_url.assert_called_once_with(prompt='consent')
+        mock_flow.fetch_token.assert_called_once_with(code='4/test_code')  # Should extract code from URL
         mock_save.assert_called_once_with(mock_creds)
 
     @patch.object(GmailAuthenticator, 'load_credentials')

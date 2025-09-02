@@ -4,6 +4,8 @@
 gmail:
   client_id: "your-client-id.apps.googleusercontent.com"
   client_secret: "your-client-secret"
+  # For manual authentication in headless environments  
+  redirect_uri: "http://localhost:8080"  # Required for OAuth2 flow
   scopes:
     - "https://www.googleapis.com/auth/gmail.readonly"
   

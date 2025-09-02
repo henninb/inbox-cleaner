@@ -29,7 +29,7 @@ class GmailAuthenticator:
         self.client_id = config['client_id']
         self.client_secret = config['client_secret']
         self.scopes = config['scopes']
-        self.redirect_uri = config.get('redirect_uri', 'http://localhost:8080/')
+        self.redirect_uri = config.get('redirect_uri', 'http://localhost:8080')
 
         # OAuth client config for the flow
         self.client_config = {
@@ -127,20 +127,83 @@ class GmailAuthenticator:
         """Perform OAuth2 authentication flow."""
         try:
             flow = InstalledAppFlow.from_client_config(self.client_config, self.scopes)
-            # Try different ports if 8080 is busy
-            for port in [8080, 8081, 8082, 0]:  # 0 means random available port
-                try:
-                    credentials = flow.run_local_server(port=port)
-                    self.save_credentials(credentials)
-                    return credentials
-                except OSError as port_error:
-                    if "Address already in use" in str(port_error) and port != 0:
-                        continue  # Try next port
-                    else:
-                        raise port_error
-            raise Exception("No available ports found")
+            
+            # In headless environments or when browser fails, use manual flow
+            if self._is_headless_environment():
+                return self._manual_auth_flow(flow)
+            
+            # Try local server flow first
+            try:
+                # Try different ports if 8080 is busy
+                for port in [8080, 8081, 8082, 0]:  # 0 means random available port
+                    try:
+                        credentials = flow.run_local_server(port=port)
+                        self.save_credentials(credentials)
+                        return credentials
+                    except OSError as port_error:
+                        if "Address already in use" in str(port_error) and port != 0:
+                            continue  # Try next port
+                        else:
+                            raise port_error
+                raise Exception("No available ports found")
+            except Exception as browser_error:
+                print(f"⚠️  Browser authentication failed: {browser_error}")
+                print("🔄 Falling back to manual authentication...")
+                return self._manual_auth_flow(flow)
+                
         except Exception as e:
             raise AuthenticationError(f"Authentication failed: {e}")
+    
+    def _manual_auth_flow(self, flow) -> Credentials:
+        """Manual authentication flow for headless environments."""
+        try:
+            # Set the redirect URI from config
+            flow.redirect_uri = self.redirect_uri
+            
+            # Get the authorization URL
+            auth_url, _ = flow.authorization_url(prompt='consent')
+            
+            print("\n" + "="*80)
+            print("🔗 MANUAL AUTHENTICATION REQUIRED")
+            print("="*80)
+            print("Please visit this URL to authorize the application:")
+            print(f"\n{auth_url}\n")
+            print("After authorization, you'll be redirected to a localhost URL that won't load.")
+            print("That's OK! Copy the ENTIRE redirect URL from your browser's address bar")
+            print("OR just copy the 'code' parameter value from the URL.")
+            print("="*80)
+            print("Examples:")
+            print("• Full URL: http://localhost:8080/?code=4/abc123...")
+            print("• Just code: 4/abc123...")
+            print("="*80)
+            
+            # Get authorization code from user
+            user_input = input("Enter the redirect URL or just the code: ").strip()
+            
+            # Extract code from URL if full URL provided
+            if user_input.startswith('http') and 'code=' in user_input:
+                import urllib.parse as urlparse
+                parsed = urlparse.urlparse(user_input)
+                params = urlparse.parse_qs(parsed.query)
+                auth_code = params.get('code', [None])[0]
+                if not auth_code:
+                    raise AuthenticationError("No 'code' parameter found in URL")
+            else:
+                auth_code = user_input
+            
+            if not auth_code:
+                raise AuthenticationError("No authorization code provided")
+            
+            # Exchange code for credentials
+            flow.fetch_token(code=auth_code)
+            credentials = flow.credentials
+            
+            self.save_credentials(credentials)
+            print("✅ Authentication successful!")
+            return credentials
+            
+        except Exception as e:
+            raise AuthenticationError(f"Manual authentication failed: {e}")
 
     def get_valid_credentials(self) -> Credentials:
         """Get valid credentials, refreshing or re-authenticating if needed."""
