@@ -328,7 +328,70 @@ def status():
     click.echo("  ❌ AI-powered cleanup (in development)")
 
 
+@main.command('apply-filters')
+@click.option('--dry-run', is_flag=True, help='Preview actions without making changes')
+@click.option('--execute', is_flag=True, help='Actually apply filters and delete emails')
+def apply_filters(dry_run, execute):
+    """Apply existing auto-delete filters to clean the inbox."""
+    
+    if not dry_run and not execute:
+        dry_run = True  # Default behavior
+    elif execute:
+        dry_run = False
+
+    try:
+        # Load configuration
+        config_path = Path("config.yaml")
+        if not config_path.exists():
+            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
+            return
+
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        gmail_config = config['gmail']
+        db_path = config['database']['path']
+
+        # Initialize components
+        authenticator = GmailAuthenticator(gmail_config)
+
+        click.echo("🔐 Getting credentials...")
+        try:
+            credentials = authenticator.get_valid_credentials()
+        except AuthenticationError as e:
+            click.echo(f"❌ Authentication failed: {e}")
+            click.echo("Run 'auth --setup' first.")
+            return
+
+        # Build Gmail service
+        service = build('gmail', 'v1', credentials=credentials)
+        db_manager = DatabaseManager(db_path)
+        unsubscribe_engine = UnsubscribeEngine(service, db_manager)
+
+        if dry_run:
+            click.echo("💡 DRY RUN MODE - No changes will be made")
+        else:
+            click.echo("⚠️ EXECUTE MODE - Changes will be made to Gmail")
+
+        # Execute deletion workflow
+        results = unsubscribe_engine.apply_filters(dry_run=dry_run)
+
+        # Display results
+        click.echo(f"\n📋 Results:")
+        click.echo(f"   Processed {results['processed_filters']} auto-delete filters.")
+        
+        if dry_run:
+            click.echo(f"   Would delete {results['total_deleted']} emails.")
+            click.echo(f"\n💡 To execute these actions, run with --execute")
+        else:
+            click.echo(f"   Deleted {results['total_deleted']} emails.")
+
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
+
+
 @main.command('list-filters')
+
 def list_filters():
     """List existing Gmail filters."""
     try:

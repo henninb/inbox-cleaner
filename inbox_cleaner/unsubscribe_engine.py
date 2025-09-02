@@ -321,6 +321,86 @@ class UnsubscribeEngine:
 
         return results
 
+    def _construct_query_from_filter(self, criteria: Dict[str, Any]) -> Optional[str]:
+        """Construct a Gmail query from filter criteria."""
+        parts = []
+        if 'from' in criteria:
+            parts.append(f"from:{criteria['from']}")
+        if 'to' in criteria:
+            parts.append(f"to:{criteria['to']}")
+        if 'subject' in criteria:
+            parts.append(f"subject:{criteria['subject']}")
+        if 'query' in criteria:
+            return criteria['query']  # If a raw query is present, use it directly
+        
+        return ' '.join(parts) if parts else None
+
+    def apply_filters(self, dry_run: bool = True) -> Dict[str, Any]:
+        """Apply existing auto-delete filters to clean the inbox."""
+        print(f"🔍 {'DRY RUN: ' if dry_run else ''}Applying auto-delete filters...")
+
+        filters = self.list_existing_filters()
+        if not filters:
+            return {'total_deleted': 0, 'message': 'No filters found.'}
+
+        total_deleted = 0
+        processed_filters = 0
+
+        for f in filters:
+            actions = f.get('action', {})
+            if 'addLabelIds' not in actions or 'TRASH' not in actions['addLabelIds']:
+                continue  # Skip non-deleting filters
+
+            processed_filters += 1
+            criteria = f.get('criteria', {})
+            query = self._construct_query_from_filter(criteria)
+
+            if not query:
+                continue
+
+            print(f"   Applying filter with query: {query}")
+
+            try:
+                result = self.service.users().messages().list(userId='me', q=query, maxResults=500).execute()
+                messages = result.get('messages', [])
+                
+                if not messages:
+                    print("      No matching emails found.")
+                    continue
+
+                message_ids = [msg['id'] for msg in messages]
+                
+                if dry_run:
+                    print(f"      Would delete {len(message_ids)} emails.")
+                    total_deleted += len(message_ids)
+                else:
+                    # Batch delete
+                    deleted_count = 0
+                    for i in range(0, len(message_ids), 50):
+                        batch_ids = message_ids[i:i+50]
+                        self.service.users().messages().batchModify(
+                            userId='me',
+                            body={
+                                'ids': batch_ids,
+                                'addLabelIds': ['TRASH'],
+                                'removeLabelIds': ['INBOX', 'UNREAD']
+                            }
+                        ).execute()
+                        deleted_count += len(batch_ids)
+                        time.sleep(0.1)
+                    
+                    print(f"      Deleted {deleted_count} emails.")
+                    total_deleted += deleted_count
+
+            except HttpError as e:
+                print(f"      ❌ Error applying filter: {e}")
+
+        return {
+            'processed_filters': processed_filters,
+            'total_deleted': total_deleted,
+            'dry_run': dry_run
+        }
+
     def list_existing_filters(self) -> List[Dict[str, Any]]:
         """List existing Gmail filters."""
         try:
