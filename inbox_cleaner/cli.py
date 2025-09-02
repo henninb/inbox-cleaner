@@ -9,6 +9,7 @@ from .auth import GmailAuthenticator, AuthenticationError
 from .database import DatabaseManager
 from .extractor import GmailExtractor
 from .unsubscribe_engine import UnsubscribeEngine
+from .spam_rules import SpamRuleManager
 
 
 @click.group()
@@ -603,6 +604,196 @@ def find_unsubscribe(domain):
                     click.echo(f"      {i}. 📧 {link}")
                 else:
                     click.echo(f"      {i}. 🔗 {link}")
+
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
+
+
+@main.command('spam-cleanup')
+@click.option('--analyze', is_flag=True, help='Analyze emails for spam patterns')
+@click.option('--setup-rules', is_flag=True, help='Set up predefined spam rules')
+@click.option('--dry-run', is_flag=True, help='Preview actions without making changes')
+@click.option('--execute', is_flag=True, help='Actually delete spam emails')
+@click.option('--limit', default=1000, type=int, help='Limit number of emails to analyze')
+def spam_cleanup(analyze, setup_rules, dry_run, execute, limit):
+    """Advanced spam detection and cleanup."""
+    
+    if not any([analyze, setup_rules, dry_run, execute]):
+        analyze = True  # Default action
+    
+    try:
+        # Load configuration
+        config_path = Path("config.yaml")
+        if not config_path.exists():
+            click.echo("❌ Error: config.yaml not found")
+            return
+
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        gmail_config = config['gmail']
+        db_path = config['database']['path']
+
+        # Initialize spam rule manager
+        spam_rules = SpamRuleManager()
+        
+        if setup_rules:
+            click.echo("🛡️  Setting up predefined spam rules...")
+            rules = spam_rules.create_predefined_spam_rules()
+            spam_rules.save_rules()
+            click.echo(f"✅ Created {len(rules)} spam detection rules")
+            
+            click.echo("\n📋 Spam detection rules created:")
+            for rule in rules:
+                rule_type = rule['type']
+                pattern = rule.get('pattern', rule.get('domain', 'N/A'))
+                reason = rule['reason']
+                click.echo(f"  • {rule_type.title()}: {pattern}")
+                click.echo(f"    Reason: {reason}")
+            
+            spam_rules.save_rules()
+            click.echo(f"\n💾 Rules saved to {spam_rules.rules_file}")
+            return
+            
+        # For analysis, dry-run, or execution, we need authentication
+        authenticator = GmailAuthenticator(gmail_config)
+
+        click.echo("🔐 Getting credentials...")
+        try:
+            credentials = authenticator.get_valid_credentials()
+        except AuthenticationError as e:
+            click.echo(f"❌ Authentication failed: {e}")
+            click.echo("Run 'auth --setup' first.")
+            return
+
+        # Build Gmail service
+        service = build('gmail', 'v1', credentials=credentials)
+
+        # Get emails from database for analysis
+        with DatabaseManager(db_path) as db:
+            if analyze:
+                click.echo(f"🔍 Analyzing last {limit} emails for spam patterns...")
+                
+                # Get recent emails from database
+                emails = db.search_emails("", limit=limit)
+                
+                if not emails:
+                    click.echo("❌ No emails found in database. Run 'sync' first.")
+                    return
+                
+                # Analyze spam patterns
+                analysis = spam_rules.analyze_spam_patterns(emails)
+                
+                click.echo(f"\n📊 Spam Analysis Results:")
+                click.echo(f"  Total emails analyzed: {analysis['total_emails']}")
+                click.echo(f"  Suspicious emails found: {len(analysis['suspicious_emails'])}")
+                
+                # Show spam indicators
+                indicators = analysis['spam_indicators']
+                if indicators['ip_in_sender'] > 0:
+                    click.echo(f"  • IPs in sender emails: {indicators['ip_in_sender']}")
+                if indicators['misspelled_subjects'] > 0:
+                    click.echo(f"  • Misspelled subjects: {indicators['misspelled_subjects']}")
+                if indicators['prize_scams'] > 0:
+                    click.echo(f"  • Prize/lottery scams: {indicators['prize_scams']}")
+                if indicators['urgent_language'] > 0:
+                    click.echo(f"  • Urgent language: {indicators['urgent_language']}")
+                if indicators['suspicious_domains']:
+                    click.echo(f"  • Suspicious domains: {len(indicators['suspicious_domains'])}")
+                
+                # Show most suspicious emails
+                if analysis['suspicious_emails']:
+                    click.echo(f"\n🚨 Most suspicious emails:")
+                    sorted_suspicious = sorted(
+                        analysis['suspicious_emails'], 
+                        key=lambda x: x['spam_score'], 
+                        reverse=True
+                    )[:5]
+                    
+                    for email in sorted_suspicious:
+                        click.echo(f"\n  📧 Score: {email['spam_score']}")
+                        click.echo(f"     From: {email['sender']}")
+                        click.echo(f"     Subject: {email['subject'][:50]}...")
+                        click.echo(f"     Indicators: {', '.join(email['indicators'])}")
+                
+                # Show suggested rules
+                if analysis['suggested_rules']:
+                    click.echo(f"\n💡 Suggested spam rules:")
+                    for rule in analysis['suggested_rules']:
+                        pattern = rule.get('pattern', rule.get('domain', ''))
+                        click.echo(f"  • {rule['type'].title()}: {pattern}")
+                        click.echo(f"    Reason: {rule['reason']}")
+                
+                click.echo(f"\n🛡️  To set up automatic spam rules, run:")
+                click.echo(f"   python -m inbox_cleaner.cli spam-cleanup --setup-rules")
+                
+            elif dry_run or execute:
+                mode = "EXECUTE" if execute else "DRY RUN"
+                click.echo(f"🚮 {mode} MODE: Spam cleanup...")
+                
+                if not execute:
+                    click.echo("💡 No changes will be made (dry run mode)")
+                
+                # Get all emails for rule matching
+                all_emails = db.search_emails("", limit=limit)
+                active_rules = spam_rules.get_active_rules()
+                
+                if not active_rules:
+                    click.echo("❌ No active spam rules found. Run --setup-rules first.")
+                    return
+                
+                click.echo(f"📋 Using {len(active_rules)} active spam rules")
+                
+                deleted_count = 0
+                emails_to_delete = []
+                
+                for email in all_emails:
+                    matched_rule = spam_rules.matches_spam_rule(email)
+                    if matched_rule and matched_rule['action'] == 'delete':
+                        emails_to_delete.append({
+                            'email': email,
+                            'rule': matched_rule
+                        })
+                
+                if emails_to_delete:
+                    click.echo(f"\n🎯 Found {len(emails_to_delete)} emails matching spam rules:")
+                    
+                    for item in emails_to_delete[:10]:  # Show first 10
+                        email = item['email']
+                        rule = item['rule']
+                        click.echo(f"  • {email.get('sender_email', 'Unknown sender')}")
+                        click.echo(f"    Subject: {email.get('subject', 'No subject')[:50]}...")
+                        click.echo(f"    Rule: {rule['reason']}")
+                    
+                    if len(emails_to_delete) > 10:
+                        click.echo(f"  ... and {len(emails_to_delete) - 10} more")
+                    
+                    if execute:
+                        click.echo(f"\n🚮 Deleting {len(emails_to_delete)} spam emails...")
+                        
+                        for item in emails_to_delete:
+                            email = item['email']
+                            message_id = email.get('message_id')
+                            
+                            try:
+                                # Delete from Gmail
+                                service.users().messages().delete(
+                                    userId='me',
+                                    id=message_id
+                                ).execute()
+                                
+                                # Delete from database
+                                db.delete_email(message_id)
+                                deleted_count += 1
+                                
+                            except Exception as e:
+                                click.echo(f"⚠️  Failed to delete {message_id}: {e}")
+                        
+                        click.echo(f"✅ Successfully deleted {deleted_count} spam emails")
+                    else:
+                        click.echo(f"\n💡 To execute deletion, run with --execute")
+                else:
+                    click.echo("✅ No spam emails found matching current rules")
 
     except Exception as e:
         click.echo(f"❌ Error: {e}")
