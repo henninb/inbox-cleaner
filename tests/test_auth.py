@@ -67,6 +67,7 @@ class TestGmailAuthenticator:
         mock_chmod.assert_called_once_with(mock_file_path, 0o600)
 
     @patch.dict('sys.modules', {'keyring': MagicMock()})
+    @patch.dict('os.environ', {'DISPLAY': ':0'}, clear=True)  # Simulate GUI environment
     def test_load_credentials_success(self, authenticator):
         """Test loading credentials from keyring."""
         import keyring
@@ -82,6 +83,7 @@ class TestGmailAuthenticator:
             mock_from_info.assert_called_once()
 
     @patch.dict('sys.modules', {'keyring': MagicMock()})
+    @patch.dict('os.environ', {'DISPLAY': ':0'}, clear=True)  # Simulate GUI environment
     def test_load_credentials_not_found(self, authenticator):
         """Test loading credentials when none exist."""
         import keyring
