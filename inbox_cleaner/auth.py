@@ -138,19 +138,24 @@ class GmailAuthenticator:
         if not config.get('scopes'):
             raise ValueError("scopes is required")
 
+        # Additional validation to prevent invalid_client during OAuth setup
+        cid = config.get('client_id', '').strip()
+        if 'your-client-id' in cid or not cid:
+            raise ValueError("Invalid Gmail OAuth client configuration: replace placeholder client_id and client_secret in config.yaml")
+
         self.client_id = config['client_id']
         self.client_secret = config['client_secret']
         self.scopes = config['scopes']
-        self.redirect_uri = config.get('redirect_uri', 'http://localhost:8080')
+        self.redirect_uri = config.get('redirect_uri', 'http://localhost')
 
         # OAuth client config for the flow
         self.client_config = {
             "installed": {
                 "client_id": self.client_id,
                 "client_secret": self.client_secret,
-                "redirect_uris": [self.redirect_uri],
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://accounts.google.com/o/oauth2/token"
+                "redirect_uris": ["http://localhost", self.redirect_uri, "http://localhost:8080", "http://localhost:8081", "http://localhost:8082"],
+                "auth_uri": "https://accounts.google.com/o/oauth2/v2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token"
             }
         }
 

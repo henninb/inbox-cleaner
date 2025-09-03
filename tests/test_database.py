@@ -356,3 +356,40 @@ class TestDatabaseManager:
             # Database should be accessible
             stats = db.get_statistics()
             assert isinstance(stats, dict)
+
+    def test_get_all_message_ids_returns_all_ids(self, db_manager):
+        """Test that get_all_message_ids returns all message IDs in database."""
+        # Add multiple test emails
+        email1 = EmailMetadata(
+            message_id="msg1", thread_id="thread1", sender_email="test1@example.com",
+            sender_domain="example.com", sender_hash="hash1", subject="Test 1",
+            date_received=datetime(2022, 1, 1), labels=["INBOX"], snippet="Test snippet 1"
+        )
+        email2 = EmailMetadata(
+            message_id="msg2", thread_id="thread2", sender_email="test2@example.com",
+            sender_domain="example.com", sender_hash="hash2", subject="Test 2",
+            date_received=datetime(2022, 1, 2), labels=["INBOX"], snippet="Test snippet 2"
+        )
+        email3 = EmailMetadata(
+            message_id="msg3", thread_id="thread3", sender_email="test3@example.com",
+            sender_domain="example.com", sender_hash="hash3", subject="Test 3",
+            date_received=datetime(2022, 1, 3), labels=["INBOX"], snippet="Test snippet 3"
+        )
+
+        db_manager.insert_email(email1)
+        db_manager.insert_email(email2)
+        db_manager.insert_email(email3)
+
+        # Get all message IDs
+        message_ids = db_manager.get_all_message_ids()
+
+        assert len(message_ids) == 3
+        assert set(message_ids) == {'msg1', 'msg2', 'msg3'}
+
+    def test_get_all_message_ids_empty_database(self):
+        """Test that get_all_message_ids returns empty list for empty database."""
+        db = DatabaseManager(':memory:')
+
+        message_ids = db.get_all_message_ids()
+
+        assert message_ids == []

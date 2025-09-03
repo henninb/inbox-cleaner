@@ -10,7 +10,9 @@ from .database import DatabaseManager
 from .extractor import GmailExtractor
 from .unsubscribe_engine import UnsubscribeEngine
 from .spam_rules import SpamRuleManager
-from .retention_manager import RetentionManager
+from .spam_filters import SpamFilterManager
+from .retention import GmailRetentionManager, RetentionConfig
+from .sync import GmailSynchronizer
 
 
 @click.group()
@@ -138,7 +140,8 @@ def auth(setup, status, logout, device_flow, web_server):
 @click.option('--batch-size', default=1000, help='Batch size for processing')
 @click.option('--with-progress', is_flag=True, help='Show progress bar')
 @click.option('--limit', default=None, type=int, help='Limit number of emails to sync')
-def sync(initial, batch_size, with_progress, limit):
+@click.option('--fast', is_flag=True, help='Fast mode: sync in background and show progress summary')
+def sync(initial, batch_size, with_progress, limit, fast):
     """Sync emails from Gmail."""
     try:
         # Load configuration
@@ -166,48 +169,66 @@ def sync(initial, batch_size, with_progress, limit):
         # Build Gmail service
         service = build('gmail', 'v1', credentials=credentials)
 
-        # Initialize extractor and database
+        # Initialize extractor, database, and synchronizer
         extractor = GmailExtractor(service, batch_size=batch_size)
 
         with DatabaseManager(db_path) as db:
+            synchronizer = GmailSynchronizer(service, db, extractor)
+
             if initial:
-                click.echo(f"📥 Starting initial sync (batch size: {batch_size})...")
+                click.echo(f"📥 Starting initial sync with Gmail as source of truth...")
                 if limit:
                     click.echo(f"📊 Limited to {limit} emails")
             else:
-                click.echo("📥 Syncing recent emails...")
+                click.echo("📥 Syncing with Gmail (true bi-directional sync)...")
 
-            def progress_callback(current: int, total: int) -> None:
-                if with_progress:
+            def progress_callback(operation: str, current: int, total: int) -> None:
+                if with_progress and not fast:
                     percentage = (current / total) * 100 if total > 0 else 0
-                    click.echo(f"Progress: {current}/{total} ({percentage:.1f}%)", nl=False)
+                    click.echo(f"{operation}: {percentage:.1f}% ({current}/{total})", nl=False)
                     click.echo("\r", nl=False)
+                elif fast and "batch" in operation.lower():
+                    # In fast mode, only show batch progress
+                    click.echo(f"⚡ {operation}")
+
+            if fast:
+                click.echo("⚡ Fast mode enabled - sync will run efficiently with minimal output")
 
             try:
-                emails = extractor.extract_all(
-                    progress_callback=progress_callback if with_progress else None,
-                    max_results=limit
+                # Perform true sync
+                result = synchronizer.sync(
+                    query="",  # Empty query to sync all emails
+                    max_results=limit,  # Pass limit directly to sync method
+                    progress_callback=progress_callback if with_progress else None
                 )
 
-                click.echo(f"\n📊 Extracted {len(emails)} emails")
+                if with_progress:
+                    click.echo()  # New line after progress
 
-                # Save to database
-                click.echo("💾 Saving to database...")
-                saved_count = 0
-                for email in emails:
-                    try:
-                        db.insert_email(email)
-                        saved_count += 1
-                    except Exception as e:
-                        # Skip duplicates silently
-                        if "UNIQUE constraint" not in str(e):
-                            click.echo(f"⚠️  Warning: {e}")
+                # Show sync results
+                if result.get('error'):
+                    click.echo(f"⚠️  Sync completed with warnings: {result['error']}")
+                else:
+                    click.echo("✅ Sync completed successfully")
 
-                click.echo(f"✅ Saved {saved_count} emails to database")
+                click.echo(f"📊 Sync results:")
+                click.echo(f"  • Added: {result['added']} new emails")
+                click.echo(f"  • Removed: {result['removed']} deleted emails")
 
-                # Show summary
+                # Show final database stats
                 stats = db.get_statistics()
                 click.echo(f"📈 Database now contains {stats['total_emails']} emails")
+
+                # Validate sync if no errors
+                if not result.get('error'):
+                    click.echo("\n🔍 Validating sync...")
+                    validation = synchronizer.validate_sync(query="", max_results=limit)
+                    if validation['in_sync']:
+                        click.echo("✅ Database is perfectly synced with Gmail")
+                    else:
+                        click.echo(f"⚠️  Sync validation found differences:")
+                        click.echo(f"  • Gmail: {validation['gmail_count']} emails")
+                        click.echo(f"  • Database: {validation['db_count']} emails")
 
             except Exception as e:
                 click.echo(f"❌ Sync failed: {e}")
@@ -856,15 +877,15 @@ def spam_cleanup(analyze, setup_rules, dry_run, execute, limit):
 
 
 @main.command('create-spam-filters')
-@click.option('--execute', is_flag=True, help='Create filters in Gmail (default is dry-run)')
-@click.option('--dry-run', is_flag=True, help='Preview filters without creating them')
-def create_spam_filters(execute, dry_run):
-    """Create Gmail auto-delete filters for common spam/fraud patterns."""
+@click.option('--analyze', is_flag=True, help='Analyze database for spam patterns (default)')
+@click.option('--create-filters', is_flag=True, help='Create Gmail filters for spam domains')
+@click.option('--update-config', is_flag=True, help='Update config.yaml with retention rules')
+@click.option('--dry-run', is_flag=True, help='Preview actions without making changes')
+def create_spam_filters(analyze, create_filters, update_config, dry_run):
+    """Automatically detect spam patterns and create filtering rules."""
 
-    if not dry_run and not execute:
-        dry_run = True
-    elif execute:
-        dry_run = False
+    if not any([analyze, create_filters, update_config]):
+        analyze = True  # Default action
 
     try:
         # Load configuration
@@ -876,127 +897,149 @@ def create_spam_filters(execute, dry_run):
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
 
+        db_path = config['database']['path']
         gmail_config = config['gmail']
 
-        # Initialize components
-        authenticator = GmailAuthenticator(gmail_config)
-        click.echo("🔐 Getting credentials...")
-        try:
-            credentials = authenticator.get_valid_credentials()
-        except AuthenticationError as e:
-            click.echo(f"❌ Authentication failed: {e}")
-            click.echo("Run 'auth --setup' first.")
-            return
+        # Initialize database and spam filter manager
+        db_manager = DatabaseManager(db_path)
+        spam_filter_manager = SpamFilterManager(db_manager)
 
-        # Build Gmail service
-        service = build('gmail', 'v1', credentials=credentials)
+        if analyze:
+            click.echo("🔍 Analyzing emails for spam patterns...")
 
-        # Patterns from user-provided spam examples
-        spam_domains = [
-            'eleganceaffairs.com',
-            'speedytype.com',
-            'mineralsbid.com',
-            'fp8888.com',
-            'pets-tiara.com',
-            'koidor.com',
-            'delmedicogroup.com',
-            'aksuhaliyikama.us.com',
-        ]
+            # Perform comprehensive spam analysis
+            spam_report = spam_filter_manager.analyze_spam()
 
-        subject_keywords = [
-            'Free Spins',
-            'Your Email Has Been Chosen',
-            'YourVip-Pass',
-            'Important Update - MUST SEE',
-            'Congratulations',
-            'Millionaire',
-            'Million to win',
-            'WinnersList',
-            'Instant-Millionaire',
-            'BonusOnHold',
-        ]
+            if spam_report['total_spam'] == 0:
+                click.echo("✅ No spam emails detected in database")
+                return
 
-        # Build desired filters list
-        desired_filters = []
+            click.echo(f"\n📊 Spam Analysis Results:")
+            click.echo(f"  • Total spam emails: {spam_report['total_spam']}")
+            click.echo(f"  • Unique spam domains: {len(spam_report['spam_domains'])}")
 
-        # Domain-based delete filters
-        for domain in spam_domains:
-            desired_filters.append({
-                'criteria': {'from': domain},
-                'action': {
-                    'addLabelIds': ['TRASH'],
-                    'removeLabelIds': ['INBOX', 'UNREAD']
-                },
-                'reason': f'spam domain: {domain}'
-            })
+            # Show spam categories
+            if spam_report['categories']:
+                click.echo(f"\n📋 Spam Categories:")
+                for category, count in spam_report['categories'].items():
+                    click.echo(f"  • {category}: {count} emails")
 
-        # Subject keyword delete filters (use query with subject operator)
-        for kw in subject_keywords:
-            desired_filters.append({
-                'criteria': {'query': f'subject:"{kw}"'},
-                'action': {
-                    'addLabelIds': ['TRASH'],
-                    'removeLabelIds': ['INBOX', 'UNREAD']
-                },
-                'reason': f'subject keyword: {kw}'
-            })
+            # Show most problematic domains
+            domain_counts = {}
+            for email in spam_report['spam_emails']:
+                domain = email['domain']
+                domain_counts[domain] = domain_counts.get(domain, 0) + 1
 
-        # Get existing filters to avoid duplicates
-        existing = service.users().settings().filters().list(userId='me').execute()
-        existing_filters = existing.get('filter', [])
+            if domain_counts:
+                click.echo(f"\n🎯 Top Spam Domains:")
+                sorted_domains = sorted(domain_counts.items(), key=lambda x: x[1], reverse=True)
+                for domain, count in sorted_domains[:10]:
+                    click.echo(f"  • {domain}: {count} emails")
 
-        def criteria_key(c: dict) -> tuple:
-            return (
-                c.get('from', ''),
-                c.get('to', ''),
-                c.get('subject', ''),
-                c.get('query', ''),
-                c.get('negatedQuery', ''),
-                str(c.get('hasAttachment', False)),
-                str(c.get('size', '')),
-                c.get('sizeComparison', ''),
-            )
+            if create_filters or update_config:
+                click.echo(f"\nTo create filters: --create-filters")
+                click.echo(f"To update config: --update-config")
 
-        existing_keys = set()
-        for f in existing_filters:
-            existing_keys.add(criteria_key(f.get('criteria', {})))
-
-        to_create = [f for f in desired_filters if criteria_key(f['criteria']) not in existing_keys]
-
-        if not to_create:
-            click.echo('✅ No new spam filters to create (all present).')
-            return
-
-        if dry_run:
-            click.echo('💡 DRY RUN - Filters that would be created:')
-            for f in to_create:
-                crit = f['criteria']
-                if 'from' in crit:
-                    click.echo(f"  • Delete from domain: {crit['from']}  ({f['reason']})")
-                elif 'query' in crit:
-                    click.echo(f"  • Delete by query: {crit['query']}  ({f['reason']})")
-            click.echo(f"Total: {len(to_create)} new filters")
-            click.echo('Re-run with --execute to create them.')
-            return
-
-        # Execute: create filters
-        created = 0
-        for f in to_create:
+        if create_filters:
+            # Need authentication for creating Gmail filters
+            authenticator = GmailAuthenticator(gmail_config)
+            click.echo("🔐 Getting credentials...")
             try:
-                service.users().settings().filters().create(
-                    userId='me',
-                    body={
-                        'criteria': f['criteria'],
-                        'action': f['action']
-                    }
-                ).execute()
-                created += 1
-            except Exception as e:
-                click.echo(f"❌ Failed to create filter ({f['reason']}): {e}")
+                credentials = authenticator.get_valid_credentials()
+            except AuthenticationError as e:
+                click.echo(f"❌ Authentication failed: {e}")
+                click.echo("Run 'auth --setup' first.")
+                return
 
-        click.echo(f"✅ Created {created} spam filters")
-        if created < len(to_create):
-            click.echo(f"⚠️  Skipped {len(to_create) - created} due to errors")
+            # Build Gmail service
+            service = build('gmail', 'v1', credentials=credentials)
+
+            click.echo("🛡️  Creating Gmail filters for spam domains...")
+
+            # Get spam domains
+            spam_domains = set(spam_filter_manager.identify_spam_domains())
+            gmail_filters = spam_filter_manager.create_gmail_filters(spam_domains)
+
+            if not gmail_filters:
+                click.echo("✅ No spam filters to create")
+                return
+
+            if dry_run:
+                click.echo(f"💡 DRY RUN - Would create {len(gmail_filters)} Gmail filters:")
+                for filter_config in gmail_filters[:10]:  # Show first 10
+                    criteria = filter_config['criteria']
+                    if 'from' in criteria:
+                        click.echo(f"  • Auto-delete from: {criteria['from']}")
+                    elif 'subject' in criteria:
+                        click.echo(f"  • Auto-delete subject: {criteria['subject']}")
+
+                if len(gmail_filters) > 10:
+                    click.echo(f"  ... and {len(gmail_filters) - 10} more")
+
+                click.echo("Re-run without --dry-run to create filters")
+                return
+
+            # Create filters in Gmail
+            created_count = 0
+            failed_count = 0
+
+            # Get existing filters to avoid duplicates
+            existing = service.users().settings().filters().list(userId='me').execute()
+            existing_filters = existing.get('filter', [])
+
+            for filter_config in gmail_filters:
+                try:
+                    # Check if filter already exists (basic check)
+                    criteria_str = str(filter_config['criteria'])
+                    exists = any(str(f.get('criteria', {})) == criteria_str for f in existing_filters)
+
+                    if not exists:
+                        service.users().settings().filters().create(
+                            userId='me',
+                            body={
+                                'criteria': filter_config['criteria'],
+                                'action': filter_config['action']
+                            }
+                        ).execute()
+                        created_count += 1
+                    else:
+                        click.echo(f"⏭️  Skipped duplicate filter")
+
+                except Exception as e:
+                    click.echo(f"❌ Failed to create filter: {e}")
+                    failed_count += 1
+
+            click.echo(f"✅ Created {created_count} Gmail filters")
+            if failed_count > 0:
+                click.echo(f"⚠️  Failed to create {failed_count} filters")
+
+        if update_config:
+            click.echo("📝 Updating config.yaml with spam retention rules...")
+
+            # Generate retention rules
+            spam_domains = set(spam_filter_manager.identify_spam_domains())
+            retention_rules = spam_filter_manager.generate_retention_rules(spam_domains)
+
+            if not retention_rules:
+                click.echo("✅ No spam retention rules to add")
+                return
+
+            if dry_run:
+                click.echo(f"💡 DRY RUN - Would add {len(retention_rules)} retention rules:")
+                for rule in retention_rules[:10]:
+                    click.echo(f"  • {rule['domain']}: {rule['retention_days']} days ({rule['description']})")
+
+                if len(retention_rules) > 10:
+                    click.echo(f"  ... and {len(retention_rules) - 10} more")
+
+                click.echo("Re-run without --dry-run to update config")
+                return
+
+            # Save retention rules to config
+            spam_filter_manager.save_filters_to_config(str(config_path), retention_rules)
+
+            click.echo(f"✅ Added {len(retention_rules)} spam retention rules to config.yaml")
+            click.echo("📋 Rules added for immediate deletion (0 days retention)")
 
     except Exception as e:
         click.echo(f"❌ Error: {e}")
@@ -1082,61 +1125,65 @@ def mark_read(query, batch_size, limit, inbox_only, include_spam_trash, execute)
 
 @main.command('retention')
 @click.option('--analyze', is_flag=True, help='Analyze retention candidates (default)')
-@click.option('--cleanup', is_flag=True, help='Delete old emails via live Gmail search')
-@click.option('--cleanup-live', 'cleanup_live', is_flag=True, help='Delete old emails via live Gmail search (bypass DB)')
-@click.option('--sync-db', is_flag=True, help='Remove orphaned emails from database that no longer exist in Gmail')
-@click.option('--days', default=30, type=int, help='Retention window in days (default: 30)')
+@click.option('--cleanup', is_flag=True, help='Delete old emails based on retention rules')
+@click.option('--config', 'config_path_override', type=click.Path(exists=True), help='Path to a custom config.yaml file')
+@click.option('--override', help='Override retention days for specific rules, e.g., "usps.com:7,spotify.com:14"')
 @click.option('--dry-run', is_flag=True, help='Preview actions without making changes')
-def retention(analyze, cleanup, cleanup_live, sync_db, days, dry_run):
-    """Retention manager for USPS, Security alerts, Hulu, Privacy.com, Spotify, Acorns, Veterans Affairs."""
+@click.option('--show-retained', is_flag=True, help='Show retained emails after cleanup operations')
+def retention(analyze, cleanup, config_path_override, override, dry_run, show_retained):
+    """Configurable, rule-based email retention manager."""
     try:
-        if not any([analyze, cleanup, cleanup_live, sync_db]):
-            analyze = True
+        if not any([analyze, cleanup]):
+            analyze = True  # Default action
 
-        rm = RetentionManager(retention_days=days)
-        rm.setup_services()
+        # Load configuration
+        config_path = Path(config_path_override) if config_path_override else Path("config.yaml")
+        if not config_path.exists():
+            click.echo("❌ Error: config.yaml not found.")
+            return
+
+        with open(config_path, 'r') as f:
+            config_data = yaml.safe_load(f)
+
+        # Parse overrides
+        overrides_dict = {}
+        if override:
+            for item in override.split(','):
+                domain, days = item.split(':')
+                overrides_dict[domain.strip()] = int(days.strip())
+
+        gmail_config = config_data.get('gmail', {})
+        retention_config = RetentionConfig(config_data, overrides=overrides_dict)
+        manager = GmailRetentionManager(retention_config, gmail_config)
 
         if analyze:
-            results = rm.analyze()
-            total_old = sum(len(results[k].old) for k in results)
-            total_recent = sum(len(results[k].recent) for k in results)
-            click.echo('📊 Retention Analysis:')
-            click.echo('=' * 40)
-            for k in ['usps','security','hulu','privacy','spotify','acorns','va']:
-                r = results[k]
-                click.echo(f"{k.title():<10} • Recent: {len(r.recent):<5} • Old: {len(r.old):<5}")
-            click.echo(f"\nTotal kept: {total_recent}  |  Total old: {total_old}")
-            return
+            click.echo("📊 Analyzing email retention based on rules...")
+            analysis_results = manager.analyze_retention()
+            total_found = sum(res.messages_found for res in analysis_results.values())
+            click.echo(f"Found {total_found} emails matching retention rules.")
+            for key, result in analysis_results.items():
+                click.echo(f"  - {key}: {result.messages_found} emails found")
 
         if cleanup:
             if dry_run:
                 click.echo('💡 DRY RUN MODE - No changes will be made')
             else:
                 click.echo('⚠️  EXECUTE MODE - Changes will be made to Gmail')
-            counts = rm.cleanup_live(dry_run=dry_run, verbose=True)
-            rm.print_kept_summary()
-            if dry_run and counts.get('total', 0) > 0:
-                click.echo(f"\n💡 To execute these actions, re-run without --dry-run")
-            return
 
-        if cleanup_live:
-            if dry_run:
-                click.echo('💡 DRY RUN MODE - No changes will be made')
-            else:
-                click.echo('⚠️  EXECUTE MODE - Changes will be made to Gmail')
-            counts = rm.cleanup_live(dry_run=dry_run, verbose=True)
-            rm.print_kept_summary()
-            if dry_run and counts.get('total', 0) > 0:
-                click.echo(f"\n💡 To execute these actions, re-run without --dry-run")
-            return
+            analysis_results = manager.analyze_retention()
+            cleanup_summary = manager.cleanup_old_emails(analysis_results, dry_run=dry_run)
 
-        if sync_db:
-            click.echo('🧹 Syncing database with Gmail (removing orphaned emails)...')
-            orphaned_count = rm.cleanup_orphaned_emails(verbose=True)
-            if orphaned_count > 0:
-                click.echo(f"\n✅ Cleaned up {orphaned_count} orphaned emails from database.")
-                click.echo("💡 Re-run --analyze to see updated counts.")
-            return
+            total_cleaned = sum(cleanup_summary.values())
+            click.echo(f"✅ Cleaned up {total_cleaned} emails.")
+            for key, count in cleanup_summary.items():
+                click.echo(f"  - {key}: {count} emails removed")
+
+            # Show retained emails if requested
+            if show_retained:
+                click.echo("\n" + "="*50)
+                click.echo("📋 Retained emails (emails being kept under retention policy):")
+                retained_results = manager.analyze_retained_emails()
+                manager.print_retained_emails(retained_results)
 
     except Exception as e:
         click.echo(f"❌ Error: {e}")

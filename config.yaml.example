@@ -4,14 +4,44 @@
 gmail:
   client_id: "your-client-id.apps.googleusercontent.com"
   client_secret: "your-client-secret"
-  # For manual authentication in headless environments  
+  # For manual authentication in headless environments
   redirect_uri: "http://localhost:8080"  # Required for OAuth2 flow
   scopes:
     - "https://www.googleapis.com/auth/gmail.readonly"
-  
+    - "https://www.googleapis.com/auth/gmail.modify"
+    - "https://www.googleapis.com/auth/gmail.settings.basic"
+
 database:
   path: "./inbox_cleaner.db"
-  
+
 app:
   batch_size: 1000
   max_emails_per_run: 5000  # Safety limit for initial runs
+
+retention_rules:
+  - domain: "usps.com"
+    retention_days: 30
+    description: "USPS delivery notifications"
+  - domain: "hulumail.com"
+    retention_days: 30
+    description: "Hulu marketing emails"
+  - sender: "no-reply@spotify.com"
+    retention_days: 30
+    description: "Spotify notifications"
+  - sender: "support@privacy.com"
+    retention_days: 30
+    description: "Privacy.com support"
+  - domain: "accounts.google.com"
+    retention_days: 30
+    subject_contains: ["security alert", "sign-in"]
+    description: "Google security alerts"
+  - sender: "info@notifications.acorns.com"
+    retention_days: 30
+    description: "Acorns notifications"
+  - sender: "veteransaffairs@messages.va.gov"
+    retention_days: 30
+    description: "Veterans Affairs communications"
+  - sender: "usbank@notifications.usbank.com"
+    retention_days: 10
+    subject_contains: ["Here’s the security code you requested"]
+    description: "U.S. Bank security codes"

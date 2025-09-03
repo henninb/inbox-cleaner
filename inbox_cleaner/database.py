@@ -211,6 +211,17 @@ class DatabaseManager:
         except sqlite3.Error:
             return False
 
+    def get_all_message_ids(self) -> List[str]:
+        """Get all message IDs from the database."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.execute("""
+                    SELECT message_id FROM emails_metadata
+                """)
+                return [row[0] for row in cursor.fetchall()]
+        except sqlite3.Error:
+            return []
+
     def get_statistics(self) -> Dict[str, Any]:
         """Get database statistics."""
         try:

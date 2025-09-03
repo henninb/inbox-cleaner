@@ -4,7 +4,7 @@ import pytest
 import yaml
 import tempfile
 import os
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, ANY
 from pathlib import Path
 from click.testing import CliRunner
 
@@ -375,113 +375,72 @@ class TestCLIRetentionCommand:
     def setup_method(self):
         """Setup test environment."""
         self.runner = CliRunner()
-
-    @patch('inbox_cleaner.cli.RetentionManager')
-    def test_retention_analyze_default(self, mock_retention_manager):
-        """Test retention command with analyze (default behavior)."""
-        # Arrange
-        mock_rm = Mock()
-        mock_retention_manager.return_value = mock_rm
-
-        mock_results = {
-            'usps': Mock(old=['old1'], recent=['recent1']),
-            'security': Mock(old=['old2'], recent=['recent2']),
-            'hulu': Mock(old=[], recent=['recent3']),
-            'privacy': Mock(old=['old3'], recent=[]),
-            'spotify': Mock(old=[], recent=[]),
-            'acorns': Mock(old=[], recent=[]),
-            'va': Mock(old=[], recent=[])
+        self.mock_config_data = {
+            'retention_rules': [
+                {'domain': 'usps.com', 'retention_days': 7},
+                {'sender': 'no-reply@spotify.com', 'retention_days': 30}
+            ]
         }
-        mock_rm.analyze.return_value = mock_results
 
-        # Act
-        result = self.runner.invoke(main, ['retention'])
+    @patch('inbox_cleaner.cli.Path.exists', return_value=True)
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.GmailRetentionManager')
+    def test_retention_analyze(self, mock_manager_class, mock_yaml, mock_open, mock_exists):
+        """Test retention command with analyze."""
+        mock_yaml.return_value = self.mock_config_data
+        mock_manager = MagicMock()
+        mock_manager_class.return_value = mock_manager
+        mock_manager.analyze_retention.return_value = {
+            'usps.com': MagicMock(messages_found=5),
+            'no-reply@spotify.com': MagicMock(messages_found=10)
+        }
 
-        # Assert
+        result = self.runner.invoke(main, ['retention', '--analyze'])
+
         assert result.exit_code == 0
-        assert 'Retention Analysis' in result.output
-        assert 'Usps' in result.output
-        assert 'Recent: 1' in result.output
-        assert 'Old: 1' in result.output
-        mock_rm.setup_services.assert_called_once()
-        mock_rm.analyze.assert_called_once()
+        assert "Analyzing email retention" in result.output
+        assert "Found 15 emails" in result.output
+        assert "usps.com: 5 emails" in result.output
 
-    @patch('inbox_cleaner.cli.RetentionManager')
-    def test_retention_cleanup_dry_run(self, mock_retention_manager):
-        """Test retention command with cleanup in dry-run mode."""
-        # Arrange
-        mock_rm = Mock()
-        mock_retention_manager.return_value = mock_rm
-        mock_rm.cleanup_live.return_value = {'total': 5}
+    @patch('inbox_cleaner.cli.Path.exists', return_value=True)
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.GmailRetentionManager')
+    def test_retention_cleanup_dry_run(self, mock_manager_class, mock_yaml, mock_open, mock_exists):
+        """Test retention cleanup in dry-run mode."""
+        mock_yaml.return_value = self.mock_config_data
+        mock_manager = MagicMock()
+        mock_manager_class.return_value = mock_manager
+        mock_manager.cleanup_old_emails.return_value = {'usps.com': 5}
+        mock_manager.analyze_retention.return_value = {}
 
-        # Act
         result = self.runner.invoke(main, ['retention', '--cleanup', '--dry-run'])
 
-        # Assert
         assert result.exit_code == 0
-        assert 'DRY RUN MODE' in result.output
-        assert 'To execute these actions' in result.output
-        mock_rm.cleanup_live.assert_called_once_with(dry_run=True, verbose=True)
-        mock_rm.print_kept_summary.assert_called_once()
+        assert "DRY RUN MODE" in result.output
+        assert "Cleaned up 5 emails" in result.output
+        mock_manager.cleanup_old_emails.assert_called_once_with(ANY, dry_run=True)
 
-    @patch('inbox_cleaner.cli.RetentionManager')
-    def test_retention_cleanup_execute(self, mock_retention_manager):
-        """Test retention command with cleanup in execute mode."""
-        # Arrange
-        mock_rm = Mock()
-        mock_retention_manager.return_value = mock_rm
-        mock_rm.cleanup_live.return_value = {'total': 3}
+    @patch('inbox_cleaner.cli.Path.exists', return_value=True)
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.RetentionConfig')
+    @patch('inbox_cleaner.cli.GmailRetentionManager')
+    def test_retention_with_override(self, mock_manager_class, mock_config_class, mock_yaml, mock_open, mock_exists):
+        """Test retention command with override."""
+        mock_yaml.return_value = self.mock_config_data
+        mock_manager = MagicMock()
+        mock_manager_class.return_value = mock_manager
+        mock_config = MagicMock()
+        mock_config_class.return_value = mock_config
 
-        # Act
-        result = self.runner.invoke(main, ['retention', '--cleanup'])
+        result = self.runner.invoke(main, ['retention', '--override', 'usps.com:3'])
 
-        # Assert
         assert result.exit_code == 0
-        assert 'EXECUTE MODE' in result.output
-        mock_rm.cleanup_live.assert_called_once_with(dry_run=False, verbose=True)
 
-    @patch('inbox_cleaner.cli.RetentionManager')
-    def test_retention_sync_db(self, mock_retention_manager):
-        """Test retention command with sync-db option."""
-        # Arrange
-        mock_rm = Mock()
-        mock_retention_manager.return_value = mock_rm
-        mock_rm.cleanup_orphaned_emails.return_value = 10
-
-        # Act
-        result = self.runner.invoke(main, ['retention', '--sync-db'])
-
-        # Assert
-        assert result.exit_code == 0
-        assert 'Syncing database with Gmail' in result.output
-        assert 'Cleaned up 10 orphaned emails' in result.output
-        mock_rm.cleanup_orphaned_emails.assert_called_once_with(verbose=True)
-
-    @patch('inbox_cleaner.cli.RetentionManager')
-    def test_retention_with_days_parameter(self, mock_retention_manager):
-        """Test retention command with custom days parameter."""
-        # Arrange
-        mock_retention_manager.return_value = Mock()
-
-        # Act
-        result = self.runner.invoke(main, ['retention', '--days', '60'])
-
-        # Assert
-        assert result.exit_code == 0
-        mock_retention_manager.assert_called_once_with(retention_days=60)
-
-    @patch('inbox_cleaner.cli.RetentionManager')
-    def test_retention_error_handling(self, mock_retention_manager):
-        """Test retention command error handling."""
-        # Arrange
-        mock_retention_manager.side_effect = Exception("Setup failed")
-
-        # Act
-        result = self.runner.invoke(main, ['retention'])
-
-        # Assert
-        assert result.exit_code == 0
-        assert 'Error: Setup failed' in result.output
+        # Check that RetentionConfig was called with the override
+        mock_config_class.assert_called_once_with(self.mock_config_data, overrides={'usps.com': 3})
 
 
 class TestCLIMarkReadCommand:
