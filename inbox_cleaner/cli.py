@@ -23,7 +23,10 @@ def main():
 @main.command()
 @click.option('--setup', is_flag=True, help='Set up OAuth2 authentication')
 @click.option('--status', is_flag=True, help='Check authentication status')
-def auth(setup, status):
+@click.option('--logout', is_flag=True, help='Logout and clear stored credentials')
+@click.option('--device-flow', is_flag=True, help='Use device flow for authentication (requires desktop client)')
+@click.option('--web-server', is_flag=True, help='Use temporary web server for authentication (recommended)')
+def auth(setup, status, logout, device_flow, web_server):
     """Manage authentication."""
     try:
         # Load configuration
@@ -39,14 +42,66 @@ def auth(setup, status):
         authenticator = GmailAuthenticator(gmail_config)
 
         if setup:
-            click.echo("🔐 Setting up OAuth2 authentication...")
+            if web_server:
+                click.echo("🔐 Setting up OAuth2 authentication using temporary web server...")
+                try:
+                    credentials = authenticator.authenticate_with_temp_server()
+                    click.echo("✅ Authentication successful!")
+                    click.echo("Credentials saved securely.")
+                except AuthenticationError as e:
+                    click.echo(f"❌ Web server authentication failed: {e}")
+                    click.echo()
+                    click.echo("🔄 Falling back to manual authentication flow...")
+                    try:
+                        credentials = authenticator.authenticate()
+                        click.echo("✅ Fallback authentication successful!")
+                        click.echo("Credentials saved securely.")
+                    except AuthenticationError as fallback_error:
+                        click.echo(f"❌ Fallback authentication also failed: {fallback_error}")
+                        return
+            elif device_flow:
+                click.echo("🔐 Setting up OAuth2 authentication using device flow...")
+                try:
+                    credentials = authenticator.authenticate_device_flow()
+                    click.echo("✅ Authentication successful!")
+                    click.echo("Credentials saved securely.")
+                except AuthenticationError as e:
+                    if "Desktop application" in str(e):
+                        click.echo(f"❌ Device flow failed: {e}")
+                        click.echo()
+                        click.echo("🔄 Falling back to manual authentication flow...")
+                        try:
+                            credentials = authenticator.authenticate()
+                            click.echo("✅ Fallback authentication successful!")
+                            click.echo("Credentials saved securely.")
+                        except AuthenticationError as fallback_error:
+                            click.echo(f"❌ Fallback authentication also failed: {fallback_error}")
+                            return
+                    else:
+                        click.echo(f"❌ Device flow authentication failed: {e}")
+                        return
+            else:
+                click.echo("🔐 Setting up OAuth2 authentication...")
+                click.echo("💡 Tip: Use --web-server for the best authentication experience!")
+                click.echo("💡 Or use --device-flow if you have a desktop OAuth2 client")
+                try:
+                    credentials = authenticator.authenticate()
+                    click.echo("✅ Authentication successful!")
+                    click.echo("Credentials saved securely.")
+                except AuthenticationError as e:
+                    click.echo(f"❌ Authentication failed: {e}")
+                    click.echo("💡 Try using --web-server for easier authentication")
+                    return
+        elif logout:
+            click.echo("🔓 Logging out...")
             try:
-                credentials = authenticator.authenticate()
-                click.echo("✅ Authentication successful!")
-                click.echo("Credentials saved securely.")
-            except AuthenticationError as e:
-                click.echo(f"❌ Authentication failed: {e}")
-                return
+                success = authenticator.logout()
+                if success:
+                    click.echo("✅ Logout successful! Credentials cleared.")
+                else:
+                    click.echo("⚠️  No stored credentials found to clear.")
+            except Exception as e:
+                click.echo(f"❌ Logout failed: {e}")
         elif status:
             click.echo("🔍 Checking authentication status...")
             try:

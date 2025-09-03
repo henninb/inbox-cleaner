@@ -1,5 +1,6 @@
 #!/bin/sh
 
+echo python -m inbox_cleaner.cli auth --setup --web-server
 echo python -m inbox_cleaner.cli retention --sync-db
 echo python -m inbox_cleaner.cli auth
 echo python -m inbox_cleaner.cli auth --setup
