@@ -1,16 +1,16 @@
 #!/bin/sh
 
-python -m inbox_cleaner.cli
+echo python -m inbox_cleaner.cli retention --sync-db
+echo python -m inbox_cleaner.cli auth
+echo python -m inbox_cleaner.cli auth --setup
+echo python -m inbox_cleaner.cli list-filters
+echo python -m inbox_cleaner.cli mark-read
+echo python -m inbox_cleaner.cli create-spam-filters
+echo python -m inbox_cleaner.cli apply-filters
 
 echo python usps_retention_manager.py --cleanup-live
+echo python -m inbox_cleaner.cli retention
 
-echo python unsubscribe_and_block.py --domain email.totaltools.com.au --execute
-echo python unsubscribe_and_block.py --domain info.curaleaf.com --execute --force
-echo python unsubscribe_and_block.py --domain t.timberland.com --execute
-echo python unsubscribe_and_block.py --domain email.totaltools.com.au --execute
-echo python unsubscribe_and_block.py --domain trulieve.com --execute
-echo python -m inbox_cleaner.cli auth
-echo python unsubscribe_and_block.py --all-domains --dry-run
 echo python -m inbox_cleaner.cli
 echo pytest
 

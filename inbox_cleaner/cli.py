@@ -10,6 +10,7 @@ from .database import DatabaseManager
 from .extractor import GmailExtractor
 from .unsubscribe_engine import UnsubscribeEngine
 from .spam_rules import SpamRuleManager
+from .retention_manager import RetentionManager
 
 
 @click.group()
@@ -1018,6 +1019,70 @@ def mark_read(query, batch_size, limit, inbox_only, include_spam_trash, execute)
             click.echo(f"✅ Marked {total_modified} messages as read.")
         else:
             click.echo(f"✅ Would mark {total_seen} messages as read. Re-run with --execute to apply.")
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
+
+
+
+
+@main.command('retention')
+@click.option('--analyze', is_flag=True, help='Analyze retention candidates (default)')
+@click.option('--cleanup', is_flag=True, help='Delete old emails via live Gmail search')
+@click.option('--cleanup-live', 'cleanup_live', is_flag=True, help='Delete old emails via live Gmail search (bypass DB)')
+@click.option('--sync-db', is_flag=True, help='Remove orphaned emails from database that no longer exist in Gmail')
+@click.option('--days', default=30, type=int, help='Retention window in days (default: 30)')
+@click.option('--dry-run', is_flag=True, help='Preview actions without making changes')
+def retention(analyze, cleanup, cleanup_live, sync_db, days, dry_run):
+    """Retention manager for USPS, Security alerts, Hulu, Privacy.com, Spotify, Acorns, Veterans Affairs."""
+    try:
+        if not any([analyze, cleanup, cleanup_live, sync_db]):
+            analyze = True
+
+        rm = RetentionManager(retention_days=days)
+        rm.setup_services()
+
+        if analyze:
+            results = rm.analyze()
+            total_old = sum(len(results[k].old) for k in results)
+            total_recent = sum(len(results[k].recent) for k in results)
+            click.echo('📊 Retention Analysis:')
+            click.echo('=' * 40)
+            for k in ['usps','security','hulu','privacy','spotify','acorns','va']:
+                r = results[k]
+                click.echo(f"{k.title():<10} • Recent: {len(r.recent):<5} • Old: {len(r.old):<5}")
+            click.echo(f"\nTotal kept: {total_recent}  |  Total old: {total_old}")
+            return
+
+        if cleanup:
+            if dry_run:
+                click.echo('💡 DRY RUN MODE - No changes will be made')
+            else:
+                click.echo('⚠️  EXECUTE MODE - Changes will be made to Gmail')
+            counts = rm.cleanup_live(dry_run=dry_run, verbose=True)
+            rm.print_kept_summary()
+            if dry_run and counts.get('total', 0) > 0:
+                click.echo(f"\n💡 To execute these actions, re-run without --dry-run")
+            return
+
+        if cleanup_live:
+            if dry_run:
+                click.echo('💡 DRY RUN MODE - No changes will be made')
+            else:
+                click.echo('⚠️  EXECUTE MODE - Changes will be made to Gmail')
+            counts = rm.cleanup_live(dry_run=dry_run, verbose=True)
+            rm.print_kept_summary()
+            if dry_run and counts.get('total', 0) > 0:
+                click.echo(f"\n💡 To execute these actions, re-run without --dry-run")
+            return
+
+        if sync_db:
+            click.echo('🧹 Syncing database with Gmail (removing orphaned emails)...')
+            orphaned_count = rm.cleanup_orphaned_emails(verbose=True)
+            if orphaned_count > 0:
+                click.echo(f"\n✅ Cleaned up {orphaned_count} orphaned emails from database.")
+                click.echo("💡 Re-run --analyze to see updated counts.")
+            return
+
     except Exception as e:
         click.echo(f"❌ Error: {e}")
 
