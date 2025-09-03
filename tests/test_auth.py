@@ -203,9 +203,9 @@ class TestGmailAuthenticator:
     def test_logout_keyring_success(self, authenticator):
         """Test successful logout by deleting credentials from keyring."""
         import keyring
-        
+
         result = authenticator.logout()
-        
+
         keyring.delete_password.assert_called_once_with("inbox-cleaner", "gmail-token")
         assert result is True
 
@@ -215,10 +215,10 @@ class TestGmailAuthenticator:
         """Test logout when no credentials exist in keyring."""
         import keyring
         keyring.delete_password.side_effect = Exception("Password not found")
-        
+
         # Should not raise exception, just return False
         result = authenticator.logout()
-        
+
         keyring.delete_password.assert_called_once_with("inbox-cleaner", "gmail-token")
         assert result is False
 
@@ -229,9 +229,9 @@ class TestGmailAuthenticator:
         mock_file = Mock()
         mock_file.exists.return_value = True
         mock_path.return_value = mock_file
-        
+
         result = authenticator.logout()
-        
+
         mock_file.unlink.assert_called_once()
         assert result is True
 
@@ -242,9 +242,9 @@ class TestGmailAuthenticator:
         mock_file = Mock()
         mock_file.exists.return_value = False
         mock_path.return_value = mock_file
-        
+
         result = authenticator.logout()
-        
+
         mock_file.unlink.assert_not_called()
         assert result is False
 
@@ -257,16 +257,16 @@ class TestGmailAuthenticator:
         mock_file = Mock()
         mock_file.exists.return_value = True
         mock_path.return_value = mock_file
-        
+
         result = authenticator.logout()
-        
+
         # Should try both keyring and file
         keyring.delete_password.assert_called_once_with("inbox-cleaner", "gmail-token")
         mock_file.unlink.assert_called_once()
         assert result is True
 
     @patch.dict('sys.modules', {'keyring': MagicMock()})
-    @patch.dict('os.environ', {'DISPLAY': ':0'}, clear=True)  # GUI environment  
+    @patch.dict('os.environ', {'DISPLAY': ':0'}, clear=True)  # GUI environment
     @patch('pathlib.Path')
     def test_logout_partial_success(self, mock_path, authenticator):
         """Test logout when keyring fails but file succeeds."""
@@ -275,9 +275,9 @@ class TestGmailAuthenticator:
         mock_file = Mock()
         mock_file.exists.return_value = True
         mock_path.return_value = mock_file
-        
+
         result = authenticator.logout()
-        
+
         # Should still try file even if keyring fails
         keyring.delete_password.assert_called_once_with("inbox-cleaner", "gmail-token")
         mock_file.unlink.assert_called_once()
@@ -298,23 +298,23 @@ class TestGmailAuthenticator:
             'interval': 1  # Fast polling for tests
         }
         device_mock.raise_for_status.return_value = None
-        
+
         # Mock successful token response
         token_mock = Mock()
         token_mock.json.return_value = {
             'access_token': 'test_access_token',
             'refresh_token': 'test_refresh_token'
         }
-        
+
         # First call returns device info, second call returns tokens
         mock_requests.side_effect = [device_mock, token_mock]
-        
+
         with patch('inbox_cleaner.auth.OAuth2Credentials.from_authorized_user_info') as mock_creds_create:
             mock_creds = Mock()
             mock_creds_create.return_value = mock_creds
-            
+
             result = authenticator.authenticate_device_flow()
-            
+
             assert result == mock_creds
             mock_save.assert_called_once_with(mock_creds)
 
@@ -332,13 +332,13 @@ class TestGmailAuthenticator:
             'interval': 1
         }
         device_mock.raise_for_status.return_value = None
-        
+
         # Mock access denied token response
         token_mock = Mock()
         token_mock.json.return_value = {'error': 'access_denied'}
-        
+
         mock_requests.side_effect = [device_mock, token_mock]
-        
+
         with pytest.raises(AuthenticationError, match="User denied access"):
             authenticator.authenticate_device_flow()
 
@@ -351,17 +351,17 @@ class TestGmailAuthenticator:
         device_mock = Mock()
         device_mock.json.return_value = {
             'device_code': 'test_device_code',
-            'user_code': 'ABCD-1234', 
+            'user_code': 'ABCD-1234',
             'verification_uri': 'https://www.google.com/device',
             'expires_in': 1,  # Very short timeout
             'interval': 1
         }
         device_mock.raise_for_status.return_value = None
-        
+
         # Mock timeout scenario
         mock_time.side_effect = [0, 2]  # First call returns 0, second returns 2 (expired)
         mock_requests.return_value = device_mock
-        
+
         with pytest.raises(AuthenticationError, match="Device flow timed out"):
             authenticator.authenticate_device_flow()
 
@@ -374,21 +374,21 @@ class TestGmailAuthenticator:
         mock_flow = Mock()
         mock_flow_class.from_client_config.return_value = mock_flow
         mock_flow.authorization_url.return_value = ('https://test-auth-url.com', 'state')
-        
+
         # Mock temporary server
         mock_server = Mock()
         mock_server_class.return_value = mock_server
         mock_server.start.return_value = None
         mock_server.wait_for_callback.return_value = '4/test_auth_code'
         mock_server.port = 8080
-        
+
         # Mock credentials
         mock_creds = Mock()
         mock_creds.to_json.return_value = '{"token": "test_token"}'
         mock_flow.credentials = mock_creds
-        
+
         result = authenticator.authenticate_with_temp_server()
-        
+
         assert result == mock_creds
         mock_server.start.assert_called_once()
         mock_server.wait_for_callback.assert_called_once()
@@ -403,17 +403,17 @@ class TestGmailAuthenticator:
         mock_flow = Mock()
         mock_flow_class.from_client_config.return_value = mock_flow
         mock_flow.authorization_url.return_value = ('https://test-auth-url.com', 'state')
-        
+
         # Mock server timeout
         mock_server = Mock()
         mock_server_class.return_value = mock_server
         mock_server.start.return_value = None
         mock_server.wait_for_callback.side_effect = TimeoutError("Authentication timed out")
         mock_server.port = 8080
-        
+
         with pytest.raises(AuthenticationError, match="Authentication timed out"):
             authenticator.authenticate_with_temp_server()
-            
+
         mock_server.stop.assert_called_once()
 
     @patch('inbox_cleaner.auth.InstalledAppFlow')
@@ -423,23 +423,23 @@ class TestGmailAuthenticator:
         mock_flow = Mock()
         mock_flow_class.from_client_config.return_value = mock_flow
         mock_flow.authorization_url.return_value = ('https://test-auth-url.com', 'state')
-        
+
         # Mock server startup failure on first port, success on second
         mock_server1 = Mock()
         mock_server2 = Mock()
         mock_server_class.side_effect = [mock_server1, mock_server2]
-        
+
         mock_server1.start.side_effect = OSError("Address already in use")
         mock_server2.start.return_value = None
         mock_server2.wait_for_callback.return_value = '4/test_code'
         mock_server2.port = 8081
-        
+
         mock_creds = Mock()
         mock_creds.to_json.return_value = '{"token": "test_token"}'
         mock_flow.credentials = mock_creds
-        
+
         result = authenticator.authenticate_with_temp_server()
-        
+
         assert result == mock_creds
         # Should have tried both servers
         assert mock_server_class.call_count == 2

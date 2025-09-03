@@ -17,9 +17,9 @@ class TestUnsubscribeEngineInit:
         """Test initialization with service and database manager."""
         mock_service = Mock()
         mock_db = Mock()
-        
+
         engine = UnsubscribeEngine(mock_service, mock_db)
-        
+
         assert engine.service == mock_service
         assert engine.db == mock_db
 
@@ -40,10 +40,10 @@ class TestUnsubscribeEngineFindLinks:
         self.mock_service.users().messages().list.return_value.execute.return_value = {
             'messages': []
         }
-        
+
         # Act
         result = self.engine.find_unsubscribe_links(domain, sample_size=5)
-        
+
         # Assert
         assert result == []
         self.mock_service.users().messages().list.assert_called_once_with(
@@ -59,7 +59,7 @@ class TestUnsubscribeEngineFindLinks:
         self.mock_service.users().messages().list.return_value.execute.return_value = {
             'messages': [{'id': 'msg1'}, {'id': 'msg2'}]
         }
-        
+
         # Mock message details with unsubscribe info
         mock_message = {
             'id': 'msg1',
@@ -75,12 +75,12 @@ class TestUnsubscribeEngineFindLinks:
                 }
             }
         }
-        
+
         self.mock_service.users().messages().get.return_value.execute.return_value = mock_message
-        
+
         # Act
         result = self.engine.find_unsubscribe_links(domain, sample_size=2)
-        
+
         # Assert
         assert len(result) == 2  # Two messages processed
         assert result[0]['domain'] == domain
@@ -95,10 +95,10 @@ class TestUnsubscribeEngineFindLinks:
         self.mock_service.users().messages().list.side_effect = HttpError(
             resp=Mock(status=404), content=b'Not found'
         )
-        
+
         # Act
         result = self.engine.find_unsubscribe_links(domain)
-        
+
         # Assert
         assert result == []
 
@@ -118,10 +118,10 @@ class TestUnsubscribeEngineFindLinks:
                 'body': {'data': base64.urlsafe_b64encode('Plain text content'.encode()).decode().rstrip('=')}
             }
         }
-        
+
         # Act
         result = self.engine._extract_unsubscribe_info(message, "example.com")
-        
+
         # Assert
         assert result is not None
         assert result['domain'] == "example.com"
@@ -134,7 +134,7 @@ class TestUnsubscribeEngineFindLinks:
         # Arrange
         email_content = "To unsubscribe, visit https://newsletter.com/optout or email optout@newsletter.com"
         encoded_content = base64.urlsafe_b64encode(email_content.encode()).decode().rstrip('=')
-        
+
         message = {
             'id': 'content_msg',
             'payload': {
@@ -142,10 +142,10 @@ class TestUnsubscribeEngineFindLinks:
                 'body': {'data': encoded_content}
             }
         }
-        
+
         # Act
         result = self.engine._extract_unsubscribe_info(message, "newsletter.com")
-        
+
         # Assert
         assert result is not None
         assert 'https://newsletter.com/optout' in result['unsubscribe_links']
@@ -161,10 +161,10 @@ class TestUnsubscribeEngineFindLinks:
                 'body': {'data': base64.urlsafe_b64encode('Regular content without links'.encode()).decode().rstrip('=')}
             }
         }
-        
+
         # Act
         result = self.engine._extract_unsubscribe_info(message, "example.com")
-        
+
         # Assert
         assert result is None
 
@@ -181,10 +181,10 @@ class TestUnsubscribeEngineEmailParsing:
         # Arrange
         text = "Hello World!"
         encoded = base64.urlsafe_b64encode(text.encode()).decode().rstrip('=')
-        
+
         # Act
         result = self.engine._decode_base64(encoded)
-        
+
         # Assert
         assert result == text
 
@@ -192,7 +192,7 @@ class TestUnsubscribeEngineEmailParsing:
         """Test decoding invalid base64 returns empty string."""
         # Act
         result = self.engine._decode_base64("invalid-base64!")
-        
+
         # Assert
         assert result == ""
 
@@ -204,10 +204,10 @@ class TestUnsubscribeEngineEmailParsing:
         payload = {
             'body': {'data': encoded}
         }
-        
+
         # Act
         result = self.engine._extract_email_content(payload)
-        
+
         # Assert
         assert content in result
 
@@ -216,10 +216,10 @@ class TestUnsubscribeEngineEmailParsing:
         # Arrange
         plain_content = "Plain text part"
         html_content = "<p>HTML part</p>"
-        
+
         plain_encoded = base64.urlsafe_b64encode(plain_content.encode()).decode().rstrip('=')
         html_encoded = base64.urlsafe_b64encode(html_content.encode()).decode().rstrip('=')
-        
+
         payload = {
             'parts': [
                 {
@@ -232,10 +232,10 @@ class TestUnsubscribeEngineEmailParsing:
                 }
             ]
         }
-        
+
         # Act
         result = self.engine._extract_email_content(payload)
-        
+
         # Assert
         assert plain_content in result
         assert 'HTML part' in result  # HTML tags should be stripped
@@ -245,7 +245,7 @@ class TestUnsubscribeEngineEmailParsing:
         # Arrange
         nested_content = "Nested content"
         nested_encoded = base64.urlsafe_b64encode(nested_content.encode()).decode().rstrip('=')
-        
+
         part = {
             'parts': [
                 {
@@ -254,10 +254,10 @@ class TestUnsubscribeEngineEmailParsing:
                 }
             ]
         }
-        
+
         # Act
         result = self.engine._extract_part_content(part)
-        
+
         # Assert
         assert nested_content in result
 
@@ -266,15 +266,15 @@ class TestUnsubscribeEngineEmailParsing:
         # Arrange
         html_content = "<html><body><h1>Title</h1><p>Paragraph with <a href='link'>link</a></p></body></html>"
         encoded = base64.urlsafe_b64encode(html_content.encode()).decode().rstrip('=')
-        
+
         part = {
             'mimeType': 'text/html',
             'body': {'data': encoded}
         }
-        
+
         # Act
         result = self.engine._extract_part_content(part)
-        
+
         # Assert
         assert '<' not in result
         assert '>' not in result
@@ -295,10 +295,10 @@ class TestUnsubscribeEngineFilters:
         """Test creating filter in dry run mode."""
         # Arrange
         domain = "spam.com"
-        
+
         # Act
         result = self.engine.create_delete_filter(domain, dry_run=True)
-        
+
         # Assert
         assert result['domain'] == domain
         assert result['action'] == 'DRY RUN - Filter not created'
@@ -314,16 +314,16 @@ class TestUnsubscribeEngineFilters:
         domain = "unwanted.com"
         mock_response = {'id': 'filter_123'}
         self.mock_service.users().settings().filters().create.return_value.execute.return_value = mock_response
-        
+
         # Act
         result = self.engine.create_delete_filter(domain, dry_run=False)
-        
+
         # Assert
         assert result['domain'] == domain
         assert result['filter_id'] == 'filter_123'
         assert result['action'] == 'Filter created successfully'
         assert result['success'] is True
-        
+
         # Verify API call
         expected_filter_body = {
             'criteria': {'from': domain},
@@ -344,10 +344,10 @@ class TestUnsubscribeEngineFilters:
         self.mock_service.users().settings().filters().create.side_effect = HttpError(
             resp=Mock(status=400), content=b'Bad Request'
         )
-        
+
         # Act
         result = self.engine.create_delete_filter(domain, dry_run=False)
-        
+
         # Assert
         assert result['domain'] == domain
         assert 'error' in result
@@ -363,10 +363,10 @@ class TestUnsubscribeEngineFilters:
             ]
         }
         self.mock_service.users().settings().filters().list.return_value.execute.return_value = mock_filters
-        
+
         # Act
         result = self.engine.list_existing_filters()
-        
+
         # Assert
         assert len(result) == 2
         assert result[0]['id'] == 'f1'
@@ -378,10 +378,10 @@ class TestUnsubscribeEngineFilters:
         self.mock_service.users().settings().filters().list.side_effect = HttpError(
             resp=Mock(status=403), content=b'Forbidden'
         )
-        
+
         # Act
         result = self.engine.list_existing_filters()
-        
+
         # Assert
         assert result == []
 
@@ -390,10 +390,10 @@ class TestUnsubscribeEngineFilters:
         # Arrange
         filter_id = "filter_to_delete"
         self.mock_service.users().settings().filters().delete.return_value.execute.return_value = {}
-        
+
         # Act
         result = self.engine.delete_filter(filter_id)
-        
+
         # Assert
         assert result is True
         self.mock_service.users().settings().filters().delete.assert_called_once_with(
@@ -408,10 +408,10 @@ class TestUnsubscribeEngineFilters:
         self.mock_service.users().settings().filters().delete.side_effect = HttpError(
             resp=Mock(status=404), content=b'Not Found'
         )
-        
+
         # Act
         result = self.engine.delete_filter(filter_id)
-        
+
         # Assert
         assert result is False
 
@@ -432,10 +432,10 @@ class TestUnsubscribeEngineEmailDeletion:
         self.mock_service.users().messages().list.return_value.execute.return_value = {
             'messages': []
         }
-        
+
         # Act
         result = self.engine.delete_existing_emails(domain, dry_run=False)
-        
+
         # Assert
         assert result['domain'] == domain
         assert result['deleted_count'] == 0
@@ -449,10 +449,10 @@ class TestUnsubscribeEngineEmailDeletion:
         self.mock_service.users().messages().list.return_value.execute.return_value = {
             'messages': mock_messages
         }
-        
+
         # Act
         result = self.engine.delete_existing_emails(domain, dry_run=True)
-        
+
         # Assert
         assert result['domain'] == domain
         assert result['found_count'] == 10
@@ -469,16 +469,16 @@ class TestUnsubscribeEngineEmailDeletion:
             'messages': mock_messages
         }
         self.mock_service.users().messages().modify.return_value.execute.return_value = {}
-        
+
         # Act
         result = self.engine.delete_existing_emails(domain, dry_run=False)
-        
+
         # Assert
         assert result['domain'] == domain
         assert result['found_count'] == 3
         assert result['deleted_count'] == 3
         assert result['success'] is True
-        
+
         # Verify modification calls
         assert self.mock_service.users().messages().modify.call_count == 3
 
@@ -491,17 +491,17 @@ class TestUnsubscribeEngineEmailDeletion:
         self.mock_service.users().messages().list.return_value.execute.return_value = {
             'messages': mock_messages
         }
-        
+
         # Make first call succeed, second fail, third succeed
         self.mock_service.users().messages().modify.side_effect = [
             Mock(execute=lambda: {}),  # Success
             HttpError(resp=Mock(status=400), content=b'Bad Request'),  # Failure
             Mock(execute=lambda: {})   # Success
         ]
-        
+
         # Act
         result = self.engine.delete_existing_emails(domain, dry_run=False)
-        
+
         # Assert
         assert result['domain'] == domain
         assert result['found_count'] == 3
@@ -515,10 +515,10 @@ class TestUnsubscribeEngineEmailDeletion:
         self.mock_service.users().messages().list.side_effect = HttpError(
             resp=Mock(status=500), content=b'Server Error'
         )
-        
+
         # Act
         result = self.engine.delete_existing_emails(domain, dry_run=False)
-        
+
         # Assert
         assert result['domain'] == domain
         assert 'error' in result
@@ -540,7 +540,7 @@ class TestUnsubscribeEngineWorkflow:
         """Test complete workflow with all steps successful."""
         # Arrange
         domain = "workflow.com"
-        
+
         mock_links.return_value = [
             {
                 'unsubscribe_links': ['https://workflow.com/unsubscribe', 'mailto:unsubscribe@workflow.com'],
@@ -549,21 +549,21 @@ class TestUnsubscribeEngineWorkflow:
         ]
         mock_filter.return_value = {'success': True, 'filter_id': 'filter123'}
         mock_delete.return_value = {'success': True, 'deleted_count': 5}
-        
+
         # Act
         result = self.engine.unsubscribe_and_block_domain(domain, dry_run=False)
-        
+
         # Assert
         assert result['domain'] == domain
         assert len(result['steps']) == 3
-        
+
         # Check each step
         assert result['steps'][0]['step'] == 'find_unsubscribe'
         assert result['steps'][0]['success'] is True
-        
+
         assert result['steps'][1]['step'] == 'create_filter'
         assert result['steps'][1]['success'] is True
-        
+
         assert result['steps'][2]['step'] == 'delete_existing'
         assert result['steps'][2]['success'] is True
 
@@ -574,14 +574,14 @@ class TestUnsubscribeEngineWorkflow:
         """Test workflow when no unsubscribe links are found."""
         # Arrange
         domain = "nolinks.com"
-        
+
         mock_links.return_value = []
         mock_filter.return_value = {'success': True, 'filter_id': 'filter123'}
         mock_delete.return_value = {'success': True, 'deleted_count': 3}
-        
+
         # Act
         result = self.engine.unsubscribe_and_block_domain(domain, dry_run=True)
-        
+
         # Assert
         assert result['domain'] == domain
         assert result['steps'][0]['step'] == 'find_unsubscribe'
@@ -595,14 +595,14 @@ class TestUnsubscribeEngineWorkflow:
         """Test workflow in dry run mode."""
         # Arrange
         domain = "dryrun.com"
-        
+
         mock_links.return_value = [{'unsubscribe_links': ['https://dryrun.com/unsubscribe']}]
         mock_filter.return_value = {'action': 'DRY RUN - Filter not created', 'success': False}
         mock_delete.return_value = {'action': 'DRY RUN - No emails moved to trash', 'success': False}
-        
+
         # Act
         result = self.engine.unsubscribe_and_block_domain(domain, dry_run=True)
-        
+
         # Assert
         mock_links.assert_called_once_with(domain, sample_size=3)
         mock_filter.assert_called_once_with(domain, dry_run=True)
@@ -657,10 +657,10 @@ class TestUnsubscribeEngineFilterApplication:
         """Test applying filters when none exist."""
         # Arrange
         mock_list_filters.return_value = []
-        
+
         # Act
         result = self.engine.apply_filters(dry_run=True)
-        
+
         # Assert
         assert result['total_deleted'] == 0
         assert result['message'] == 'No filters found.'
@@ -676,10 +676,10 @@ class TestUnsubscribeEngineFilterApplication:
                 'action': {'addLabelIds': ['IMPORTANT']}  # Not a delete filter
             }
         ]
-        
+
         # Act
         result = self.engine.apply_filters(dry_run=True)
-        
+
         # Assert
         assert result['processed_filters'] == 0
 
@@ -694,14 +694,14 @@ class TestUnsubscribeEngineFilterApplication:
                 'action': {'addLabelIds': ['TRASH'], 'removeLabelIds': ['INBOX']}
             }
         ]
-        
+
         self.mock_service.users().messages().list.return_value.execute.return_value = {
             'messages': [{'id': 'msg1'}, {'id': 'msg2'}, {'id': 'msg3'}]
         }
-        
+
         # Act
         result = self.engine.apply_filters(dry_run=True)
-        
+
         # Assert
         assert result['processed_filters'] == 1
         assert result['total_deleted'] == 3
@@ -721,20 +721,20 @@ class TestUnsubscribeEngineFilterApplication:
                 'action': {'addLabelIds': ['TRASH']}
             }
         ]
-        
+
         self.mock_service.users().messages().list.return_value.execute.return_value = {
             'messages': [{'id': f'msg{i}'} for i in range(75)]  # More than batch size
         }
         self.mock_service.users().messages().batchModify.return_value.execute.return_value = {}
-        
+
         # Act
         result = self.engine.apply_filters(dry_run=False)
-        
+
         # Assert
         assert result['processed_filters'] == 1
         assert result['total_deleted'] == 75
         assert result['dry_run'] is False
-        
+
         # Should make multiple batch calls (75 messages / 50 per batch = 2 batches)
         assert self.mock_service.users().messages().batchModify.call_count == 2
 
@@ -749,14 +749,14 @@ class TestUnsubscribeEngineFilterApplication:
                 'action': {'addLabelIds': ['TRASH']}
             }
         ]
-        
+
         self.mock_service.users().messages().list.side_effect = HttpError(
             resp=Mock(status=500), content=b'Server Error'
         )
-        
+
         # Act
         result = self.engine.apply_filters(dry_run=False)
-        
+
         # Assert
         assert result['processed_filters'] == 1
         assert result['total_deleted'] == 0  # Nothing deleted due to error
@@ -784,10 +784,10 @@ class TestUnsubscribeEngineEdgeCases:
                 'body': {'data': base64.urlsafe_b64encode('content'.encode()).decode().rstrip('=')}
             }
         }
-        
+
         # Act
         result = self.engine._extract_unsubscribe_info(message, "test.com")
-        
+
         # Assert - Should still work, just no links extracted from header
         assert result is None or len(result.get('unsubscribe_links', [])) == 0
 
@@ -795,10 +795,10 @@ class TestUnsubscribeEngineEdgeCases:
         """Test extracting content from empty payload."""
         # Arrange
         payload = {}
-        
+
         # Act
         result = self.engine._extract_email_content(payload)
-        
+
         # Assert
         assert result == ""
 
@@ -809,10 +809,10 @@ class TestUnsubscribeEngineEdgeCases:
             'mimeType': 'application/octet-stream',
             'body': {'data': base64.urlsafe_b64encode('binary data'.encode()).decode()}
         }
-        
+
         # Act
         result = self.engine._extract_part_content(part)
-        
+
         # Assert
         assert result == ""
 
@@ -821,11 +821,11 @@ class TestUnsubscribeEngineEdgeCases:
         # Arrange
         domain = "newsletter.com"
         large_message_list = [{'id': f'msg{i}'} for i in range(100)]
-        
+
         self.mock_service.users().messages().list.return_value.execute.return_value = {
             'messages': large_message_list
         }
-        
+
         # Mock message with no unsubscribe info to speed up test
         mock_message = {
             'id': 'msg1',
@@ -835,10 +835,10 @@ class TestUnsubscribeEngineEdgeCases:
             }
         }
         self.mock_service.users().messages().get.return_value.execute.return_value = mock_message
-        
+
         # Act
         result = self.engine.find_unsubscribe_links(domain, sample_size=50)
-        
+
         # Assert
         # Should limit to sample_size, not process all messages
         assert self.mock_service.users().messages().list.call_args[1]['maxResults'] == 50
@@ -849,16 +849,16 @@ class TestUnsubscribeEngineEdgeCases:
         domain = "ratelimit.com"
         # Create enough messages to trigger multiple batches
         mock_messages = [{'id': f'msg{i}'} for i in range(120)]
-        
+
         self.mock_service.users().messages().list.return_value.execute.return_value = {
             'messages': mock_messages
         }
         self.mock_service.users().messages().modify.return_value.execute.return_value = {}
-        
+
         # Act
         with patch('time.sleep') as mock_sleep:
             result = self.engine.delete_existing_emails(domain, dry_run=False)
-            
+
             # Assert
             assert result['deleted_count'] == 120
             # Should call sleep for rate limiting (once per batch, 120/50 = 3 batches)

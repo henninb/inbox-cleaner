@@ -226,7 +226,7 @@ class RetentionManager:
 
         counts: Dict[str, int] = {}
         ids_all: List[str] = []
-        
+
         for key, (message, q) in queries.items():
             if verbose:
                 print(message)
@@ -241,7 +241,7 @@ class RetentionManager:
                 print('✅ No old emails found via live search.')
             counts["total"] = 0
             return counts
-            
+
         if dry_run:
             counts["total"] = len(ids_all)
             return counts
@@ -263,11 +263,11 @@ class RetentionManager:
                     break
                 elif verbose:
                     print(f"⚠️  Failed a batch: {e}")
-                    
+
         if verbose:
             print(f"✅ Moved {moved} messages to Trash via live search.")
             print('ℹ️  These will be auto-deleted by Gmail after 30 days.')
-        
+
         counts["total"] = moved
         return counts
 
@@ -282,38 +282,38 @@ class RetentionManager:
     def print_kept_summary(self) -> None:
         """Print a detailed summary of kept (recent) emails by category."""
         results = self.analyze()
-        
+
         category_info = {
             "usps": "USPS emails (most recent under retention)",
-            "security": "Google Security Alert emails (most recent under retention)", 
+            "security": "Google Security Alert emails (most recent under retention)",
             "hulu": "Hulu emails (most recent under retention)",
             "privacy": "Privacy.com emails (most recent under retention)",
             "spotify": "Spotify emails (most recent under retention)",
             "acorns": "Acorns emails (most recent under retention)",
             "va": "Veterans Affairs emails (most recent under retention)"
         }
-        
+
         total_kept = 0
         for key in ["usps", "security", "hulu", "privacy", "spotify", "acorns", "va"]:
             recent_emails = results[key].recent
             recent_count = len(recent_emails)
             total_kept += recent_count
-            
+
             print(f"\n📥 Kept {category_info[key]}:")
             print("-" * 60)
-            
+
             if recent_count == 0:
                 print("(none)")
             else:
                 # Show up to 10 most recent emails for each category
                 for email in recent_emails[:10]:
                     print(self._format_email_line(email))
-                
+
                 if recent_count > 10:
                     print(f"... and {recent_count - 10} more {key} emails")
-            
+
             print(f"Kept {key} total: {recent_count}")
-        
+
         print(f"\n🎯 SUMMARY: Total kept across all categories: {total_kept} emails")
         print(f"💡 These emails are under {self.retention_days}-day retention and will be preserved.")
         if total_kept > 0:
@@ -323,29 +323,29 @@ class RetentionManager:
         """Remove emails from database that no longer exist in Gmail."""
         if not self.db_path:
             return 0
-            
+
         results = self.analyze()
         orphaned_count = 0
-        
+
         # Check all old emails to see if they still exist in Gmail
         all_old_emails = []
         for key in ["usps", "security", "hulu", "privacy", "spotify", "acorns", "va"]:
             all_old_emails.extend(results[key].old)
-        
+
         if not all_old_emails:
             if verbose:
                 print("✅ No old emails found in database to check.")
             return 0
-            
+
         if verbose:
             print(f"🧹 Checking {len(all_old_emails)} old emails in database against Gmail...")
-        
+
         with DatabaseManager(self.db_path) as db:
             for email in all_old_emails:
                 msg_id = email.get('message_id', '')
                 if not msg_id:
                     continue
-                    
+
                 try:
                     # Try to get the message from Gmail
                     self.service.users().messages().get(userId='me', id=msg_id).execute()
@@ -359,12 +359,12 @@ class RetentionManager:
                                 print(f"   Cleaned up {orphaned_count} orphaned emails...")
                         except Exception:
                             pass
-        
+
         if verbose:
             if orphaned_count > 0:
                 print(f"🧹 Cleaned up {orphaned_count} orphaned emails from database.")
                 print("💡 Database is now in sync with Gmail.")
             else:
                 print("✅ Database is already in sync with Gmail.")
-        
+
         return orphaned_count

@@ -382,7 +382,7 @@ class TestCLIRetentionCommand:
         # Arrange
         mock_rm = Mock()
         mock_retention_manager.return_value = mock_rm
-        
+
         mock_results = {
             'usps': Mock(old=['old1'], recent=['recent1']),
             'security': Mock(old=['old2'], recent=['recent2']),
@@ -513,7 +513,7 @@ class TestCLIMarkReadCommand:
 
         mock_service = Mock()
         mock_build.return_value = mock_service
-        
+
         # Mock Gmail API responses
         mock_service.users().messages().list().execute.side_effect = [
             {'messages': [{'id': '1'}, {'id': '2'}]},
@@ -544,7 +544,7 @@ class TestCLIMarkReadCommand:
 
         mock_service = Mock()
         mock_build.return_value = mock_service
-        
+
         # Mock Gmail API responses
         mock_service.users().messages().list().execute.side_effect = [
             {'messages': [{'id': '1'}, {'id': '2'}]},
@@ -575,7 +575,7 @@ class TestCLIMarkReadCommand:
 
         mock_service = Mock()
         mock_build.return_value = mock_service
-        
+
         mock_service.users().messages().list().execute.return_value = {}
 
         # Act
@@ -600,7 +600,7 @@ class TestCLIMarkReadCommand:
 
         mock_service = Mock()
         mock_build.return_value = mock_service
-        
+
         mock_service.users().messages().list().execute.return_value = {
             'messages': [{'id': str(i)} for i in range(10)]
         }
@@ -666,7 +666,7 @@ class TestCLISpamCleanupCommand:
         # Arrange
         mock_spam_rules = Mock()
         mock_spam_rules_class.return_value = mock_spam_rules
-        
+
         mock_rules = [
             {'type': 'domain', 'pattern': 'spam.com', 'reason': 'Known spam domain'},
             {'type': 'subject', 'pattern': 'FREE MONEY', 'reason': 'Suspicious subject'}
@@ -713,7 +713,7 @@ class TestCLISpamCleanupCommand:
 
         mock_spam_rules = Mock()
         mock_spam_rules_class.return_value = mock_spam_rules
-        
+
         mock_analysis = {
             'total_emails': 2,
             'suspicious_emails': [
@@ -790,7 +790,7 @@ class TestCLICreateSpamFiltersCommand:
 
         mock_service = Mock()
         mock_build.return_value = mock_service
-        
+
         # Mock existing filters response
         mock_service.users().settings().filters().list().execute.return_value = {
             'filter': []  # No existing filters
@@ -820,7 +820,7 @@ class TestCLICreateSpamFiltersCommand:
 
         mock_service = Mock()
         mock_build.return_value = mock_service
-        
+
         # Mock existing filters response
         mock_service.users().settings().filters().list().execute.return_value = {
             'filter': []  # No existing filters
@@ -850,7 +850,7 @@ class TestCLICreateSpamFiltersCommand:
 
         mock_service = Mock()
         mock_build.return_value = mock_service
-        
+
         # Mock response with many existing filters to match all desired ones
         # Need to create comprehensive list to match the logic in CLI
         existing_filters = []
@@ -864,24 +864,24 @@ class TestCLICreateSpamFiltersCommand:
             'Important Update - MUST SEE', 'Congratulations', 'Millionaire',
             'Million to win', 'WinnersList', 'Instant-Millionaire', 'BonusOnHold'
         ]
-        
+
         for domain in spam_domains:
             existing_filters.append({
                 'criteria': {'from': domain},
                 'action': {'addLabelIds': ['TRASH']}
             })
-        
+
         for keyword in subject_keywords:
             existing_filters.append({
                 'criteria': {'query': f'subject:"{keyword}"'},
                 'action': {'addLabelIds': ['TRASH']}
             })
-        
+
         mock_service.users().settings().filters().list().execute.return_value = {
             'filter': existing_filters
         }
 
-        # Act  
+        # Act
         result = self.runner.invoke(main, ['create-spam-filters'])
 
         # Assert
@@ -927,7 +927,7 @@ class TestCLIApplyFiltersCommand:
 
         mock_engine = Mock()
         mock_engine_class.return_value = mock_engine
-        
+
         mock_result = {
             'processed_filters': 3,
             'total_deleted': 15
@@ -965,7 +965,7 @@ class TestCLIApplyFiltersCommand:
 
         mock_engine = Mock()
         mock_engine_class.return_value = mock_engine
-        
+
         mock_result = {
             'processed_filters': 2,
             'total_deleted': 8
@@ -1005,7 +1005,7 @@ class TestCLIAuthCommand:
         # Arrange
         mock_exists.return_value = True
         mock_yaml.return_value = self.mock_config
-        
+
         mock_auth = Mock()
         mock_auth_class.return_value = mock_auth
         mock_credentials = Mock()
@@ -1029,7 +1029,7 @@ class TestCLIAuthCommand:
         # Arrange
         mock_exists.return_value = True
         mock_yaml.return_value = self.mock_config
-        
+
         mock_auth = Mock()
         mock_auth_class.return_value = mock_auth
         mock_auth.authenticate.side_effect = AuthenticationError("OAuth failed")
@@ -1050,7 +1050,7 @@ class TestCLIAuthCommand:
         # Arrange
         mock_exists.return_value = True
         mock_yaml.return_value = self.mock_config
-        
+
         mock_auth = Mock()
         mock_auth_class.return_value = mock_auth
         mock_credentials = Mock()
@@ -1073,7 +1073,7 @@ class TestCLIAuthCommand:
         # Arrange
         mock_exists.return_value = True
         mock_yaml.return_value = self.mock_config
-        
+
         mock_auth = Mock()
         mock_auth_class.return_value = mock_auth
         mock_credentials = Mock()
@@ -1097,7 +1097,7 @@ class TestCLIAuthCommand:
         # Arrange
         mock_exists.return_value = True
         mock_yaml.return_value = self.mock_config
-        
+
         mock_auth = Mock()
         mock_auth_class.return_value = mock_auth
         mock_credentials = Mock()
@@ -1339,7 +1339,7 @@ class TestCLIDiagnoseCommand:
         # Mock Path.exists to return True for config and test db files
         mock_exists.return_value = True
         mock_yaml.return_value = self.mock_config
-        
+
         mock_auth = Mock()
         mock_auth_class.return_value = mock_auth
         mock_credentials = Mock()
@@ -1384,7 +1384,7 @@ class TestCLIDiagnoseCommand:
         # Arrange
         mock_exists.return_value = True
         mock_yaml.return_value = {'invalid': 'config'}
-        
+
         # Act
         result = self.runner.invoke(main, ['diagnose'])
 
@@ -1421,7 +1421,7 @@ class TestCLIStatusCommand:
         # Mock Path.exists to return True for config and test db files
         mock_exists.return_value = True
         mock_yaml.return_value = self.mock_config
-        
+
         mock_auth = Mock()
         mock_auth_class.return_value = mock_auth
         mock_credentials = Mock()
@@ -1465,7 +1465,7 @@ class TestCLIStatusCommand:
         # Arrange
         mock_exists.return_value = True
         mock_yaml.return_value = self.mock_config
-        
+
         mock_auth = Mock()
         mock_auth_class.return_value = mock_auth
         mock_auth.load_credentials.return_value = None
