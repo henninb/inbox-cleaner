@@ -182,23 +182,23 @@ class SpamRuleManager:
                 "action": "delete",
                 "reason": "Prize/lottery spam scam"
             },
-            
+
             # Suspicious sender patterns (emails with IPs)
             {
-                "type": "sender", 
+                "type": "sender",
                 "pattern": r".*\d+\.\d+\.\d+\.\d+.*@",
                 "action": "delete",
                 "reason": "Sender email contains IP address (suspicious)"
             },
-            
+
             # Random character domains (like warunaantique.com pattern)
             {
                 "type": "sender",
                 "pattern": r"@[a-z]{8,20}\.(com|net|org|info)$",
-                "action": "delete", 
+                "action": "delete",
                 "reason": "Random/suspicious domain name"
             },
-            
+
             # Misspelled common words in subject
             {
                 "type": "subject",
@@ -206,7 +206,7 @@ class SpamRuleManager:
                 "action": "delete",
                 "reason": "Deliberately misspelled spam words"
             },
-            
+
             # Generic suspicious domains
             {
                 "type": "domain",
@@ -214,7 +214,7 @@ class SpamRuleManager:
                 "action": "delete",
                 "reason": "Known spam domain"
             },
-            
+
             # Money/financial scams
             {
                 "type": "subject",
@@ -222,24 +222,24 @@ class SpamRuleManager:
                 "action": "delete",
                 "reason": "Financial scam pattern"
             },
-            
+
             # Urgent action required
             {
-                "type": "subject", 
+                "type": "subject",
                 "pattern": r"(urgent.*action|immediate.*response|time.*limited|expires.*today|act.*now)",
                 "action": "delete",
                 "reason": "Urgent action spam pattern"
             },
-            
+
             # Suspicious forwarding emails (bcc patterns)
             {
                 "type": "sender",
                 "pattern": r".*[A-Z]{2,}[a-z]{2,}[A-Z]{2,}.*@outlook\.com",
-                "action": "delete", 
+                "action": "delete",
                 "reason": "Suspicious forwarding email pattern"
             }
         ]
-        
+
         created_rules = []
         for rule_data in predefined_rules:
             rule = {
@@ -251,15 +251,15 @@ class SpamRuleManager:
                 "active": True,
                 "predefined": True
             }
-            
+
             if rule_data["type"] == "domain":
                 rule["domain"] = rule_data.get("domain")
             else:
                 rule["pattern"] = rule_data.get("pattern")
-            
+
             self.rules.append(rule)
             created_rules.append(rule)
-        
+
         return created_rules
 
     def analyze_spam_patterns(self, emails: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -276,26 +276,26 @@ class SpamRuleManager:
                 "urgent_language": 0
             }
         }
-        
+
         suspicious_domains = set()
-        
+
         for email in emails:
             sender = email.get("sender_email", "")
             subject = email.get("subject", "")
             domain = email.get("sender_domain", "")
-            
+
             spam_score = 0
             indicators = []
-            
+
             # Check for IP in sender email
             if re.search(r"\d+\.\d+\.\d+\.\d+", sender):
                 spam_score += 3
                 indicators.append("IP in sender email")
                 analysis["spam_indicators"]["ip_in_sender"] += 1
-            
+
             # Check for misspelled common words
             misspell_patterns = [
-                r"reeveall", r"yourr", r"prrizzes", r"claiim", 
+                r"reeveall", r"yourr", r"prrizzes", r"claiim",
                 r"winnner", r"congradulat", r"recieve", r"seperate"
             ]
             for pattern in misspell_patterns:
@@ -304,7 +304,7 @@ class SpamRuleManager:
                     indicators.append("Misspelled words")
                     analysis["spam_indicators"]["misspelled_subjects"] += 1
                     break
-            
+
             # Check for prize/lottery scams
             prize_patterns = [
                 r"spin.*prize", r"instant.*millionaire", r"claim.*prize",
@@ -316,7 +316,7 @@ class SpamRuleManager:
                     indicators.append("Prize/lottery scam")
                     analysis["spam_indicators"]["prize_scams"] += 1
                     break
-            
+
             # Check for urgent language
             urgent_patterns = [
                 r"urgent.*action", r"act.*now", r"limited.*time",
@@ -328,13 +328,13 @@ class SpamRuleManager:
                     indicators.append("Urgent language")
                     analysis["spam_indicators"]["urgent_language"] += 1
                     break
-            
+
             # Check for suspicious domain patterns
             if re.match(r"^[a-z]{8,20}\.(com|net|org|info)$", domain):
                 spam_score += 2
                 indicators.append("Suspicious domain pattern")
                 suspicious_domains.add(domain)
-            
+
             # If spam score is high enough, mark as suspicious
             if spam_score >= 3:
                 analysis["suspicious_emails"].append({
@@ -344,9 +344,9 @@ class SpamRuleManager:
                     "spam_score": spam_score,
                     "indicators": indicators
                 })
-        
+
         analysis["spam_indicators"]["suspicious_domains"] = list(suspicious_domains)
-        
+
         # Generate suggested rules based on analysis
         if analysis["spam_indicators"]["ip_in_sender"] > 0:
             analysis["suggested_rules"].append({
@@ -354,19 +354,19 @@ class SpamRuleManager:
                 "pattern": r".*\d+\.\d+\.\d+\.\d+.*@",
                 "reason": f"Found {analysis['spam_indicators']['ip_in_sender']} emails with IP addresses in sender"
             })
-        
+
         if analysis["spam_indicators"]["prize_scams"] > 0:
             analysis["suggested_rules"].append({
-                "type": "subject", 
+                "type": "subject",
                 "pattern": r"(spin|prize|winner|lottery|millionaire|claim.*prize)",
                 "reason": f"Found {analysis['spam_indicators']['prize_scams']} prize/lottery scam emails"
             })
-        
+
         for domain in suspicious_domains:
             analysis["suggested_rules"].append({
                 "type": "domain",
                 "domain": domain,
                 "reason": f"Suspicious domain pattern detected"
             })
-        
+
         return analysis

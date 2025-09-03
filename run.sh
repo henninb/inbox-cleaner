@@ -2,6 +2,8 @@
 
 python -m inbox_cleaner.cli
 
+echo python usps_retention_manager.py --cleanup-live
+
 echo python unsubscribe_and_block.py --domain email.totaltools.com.au --execute
 echo python unsubscribe_and_block.py --domain info.curaleaf.com --execute --force
 echo python unsubscribe_and_block.py --domain t.timberland.com --execute
