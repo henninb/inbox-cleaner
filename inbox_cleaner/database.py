@@ -339,6 +339,44 @@ class DatabaseManager:
         except sqlite3.Error:
             return 0
 
+    def execute_query(self, query: str, params: tuple = ()) -> bool:
+        """Execute a SQL query with parameters."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.execute(query, params)
+                conn.commit()
+                return cursor.rowcount > 0
+        except sqlite3.Error:
+            return False
+
+    def fetch_all(self, query: str, params: tuple = ()) -> List[tuple]:
+        """Execute a query and fetch all results."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.execute(query, params)
+                return cursor.fetchall()
+        except sqlite3.Error:
+            return []
+
+    def fetch_one(self, query: str, params: tuple = ()) -> Optional[tuple]:
+        """Execute a query and fetch one result."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.execute(query, params)
+                return cursor.fetchone()
+        except sqlite3.Error:
+            return None
+
+    def executemany(self, query: str, params_list: List[tuple]) -> int:
+        """Execute a query with multiple parameter sets."""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.executemany(query, params_list)
+                conn.commit()
+                return cursor.rowcount
+        except sqlite3.Error:
+            return 0
+
     def __enter__(self):
         """Context manager entry."""
         return self

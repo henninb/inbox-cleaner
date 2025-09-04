@@ -13,6 +13,7 @@ from .spam_rules import SpamRuleManager
 from .spam_filters import SpamFilterManager
 from .retention import GmailRetentionManager, RetentionConfig
 from .sync import GmailSynchronizer
+from .filter_analytics import FilterAnalytics
 
 
 @click.group()
@@ -1357,6 +1358,303 @@ def export_filters(filename):
 
         click.echo(f"✅ Exported {len(filters)} filters to {filename}")
         click.echo(f"💡 You can import this file in Gmail Settings > Filters and Blocked Addresses > Import filters")
+
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
+
+
+@main.command('filter-analytics')
+@click.option('--efficiency', is_flag=True, help='Analyze filter efficiency and complexity (default)')
+@click.option('--duplicates', is_flag=True, help='Find duplicate filters')
+@click.option('--optimizations', is_flag=True, help='Suggest filter optimizations')
+@click.option('--performance', is_flag=True, help='Measure filter performance')
+@click.option('--report', is_flag=True, help='Generate comprehensive efficiency report')
+@click.option('--sample-size', default=1000, type=int, help='Sample size for performance testing')
+def filter_analytics(efficiency, duplicates, optimizations, performance, report, sample_size):
+    """Analyze Gmail filter efficiency and suggest improvements."""
+    
+    if not any([efficiency, duplicates, optimizations, performance, report]):
+        efficiency = True  # Default action
+    
+    try:
+        # Load configuration
+        config_path = Path("config.yaml")
+        if not config_path.exists():
+            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
+            return
+
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        gmail_config = config['gmail']
+        db_path = config['database']['path']
+
+        # Initialize components
+        authenticator = GmailAuthenticator(gmail_config)
+
+        click.echo("🔐 Getting credentials...")
+        try:
+            credentials = authenticator.get_valid_credentials()
+        except AuthenticationError as e:
+            click.echo(f"❌ Authentication failed: {e}")
+            click.echo("Run 'auth --setup' first.")
+            return
+
+        # Build Gmail service
+        service = build('gmail', 'v1', credentials=credentials)
+        db_manager = DatabaseManager(db_path)
+        analytics = FilterAnalytics(db_manager)
+
+        # Get existing filters
+        click.echo("📥 Retrieving existing Gmail filters...")
+        existing = service.users().settings().filters().list(userId='me').execute()
+        filters = existing.get('filter', [])
+        
+        if not filters:
+            click.echo("✅ No filters found to analyze")
+            return
+
+        click.echo(f"🔍 Analyzing {len(filters)} Gmail filters...")
+
+        if efficiency or report:
+            click.echo("\n📊 Filter Complexity Analysis:")
+            complex_filters = []
+            simple_filters = []
+            
+            for filter_data in filters:
+                complexity = analytics.analyze_filter_complexity(filter_data)
+                if complexity['complexity_level'] == 'complex':
+                    complex_filters.append(complexity)
+                elif complexity['complexity_level'] == 'simple':
+                    simple_filters.append(complexity)
+            
+            click.echo(f"  • Simple filters: {len(simple_filters)}")
+            click.echo(f"  • Complex filters: {len(complex_filters)}")
+            
+            if complex_filters:
+                click.echo(f"\n⚠️ Most Complex Filters:")
+                sorted_complex = sorted(complex_filters, key=lambda x: x['complexity_score'], reverse=True)
+                for comp in sorted_complex[:5]:
+                    click.echo(f"  • Score {comp['complexity_score']}: {comp['description']}")
+                    click.echo(f"    Factors: {', '.join(comp['factors'])}")
+
+        if duplicates or report:
+            click.echo(f"\n🔍 Searching for duplicate filters...")
+            duplicate_groups = analytics.identify_duplicate_filters(filters)
+            
+            if duplicate_groups:
+                click.echo(f"⚠️ Found {len(duplicate_groups)} duplicate filter groups:")
+                for group in duplicate_groups:
+                    criteria_desc = []
+                    criteria = group['criteria']
+                    if 'from' in criteria:
+                        criteria_desc.append(f"From: {criteria['from']}")
+                    if 'to' in criteria:
+                        criteria_desc.append(f"To: {criteria['to']}")
+                    if 'subject' in criteria:
+                        criteria_desc.append(f"Subject: {criteria['subject']}")
+                    
+                    criteria_text = ", ".join(criteria_desc) if criteria_desc else str(criteria)
+                    click.echo(f"  • {criteria_text} ({group['count']} duplicates)")
+            else:
+                click.echo("✅ No duplicate filters found")
+
+        if optimizations or report:
+            click.echo(f"\n🎯 Analyzing optimization opportunities...")
+            optimization_suggestions = analytics.suggest_filter_optimizations(filters)
+            
+            if optimization_suggestions:
+                click.echo(f"💡 Found {len(optimization_suggestions)} optimization opportunities:")
+                for opt in optimization_suggestions:
+                    if opt['type'] == 'consolidate_domain':
+                        click.echo(f"  • {opt['description']}")
+                        click.echo(f"    Estimated savings: {opt['estimated_savings']} filters")
+                    elif opt['type'] == 'simplify_complex':
+                        click.echo(f"  • {opt['description']}")
+                        for suggestion in opt['suggestions']:
+                            click.echo(f"    - {suggestion}")
+            else:
+                click.echo("✅ No optimization opportunities found")
+
+        if performance or report:
+            click.echo(f"\n⏱️ Measuring filter performance...")
+            
+            # Get sample emails for performance testing
+            emails = db_manager.search_emails("", per_page=sample_size)
+            
+            if not emails:
+                click.echo("❌ No emails found in database for performance testing")
+            else:
+                click.echo(f"Testing {len(filters)} filters against {len(emails)} sample emails...")
+                
+                slow_filters = []
+                for filter_data in filters:
+                    perf = analytics.measure_filter_performance(filter_data, emails)
+                    if perf['execution_time_ms'] > 10:  # Filters taking more than 10ms
+                        slow_filters.append(perf)
+                
+                if slow_filters:
+                    click.echo(f"⚠️ Found {len(slow_filters)} potentially slow filters:")
+                    sorted_slow = sorted(slow_filters, key=lambda x: x['execution_time_ms'], reverse=True)
+                    for perf in sorted_slow[:5]:
+                        click.echo(f"  • Filter {perf['filter_id']}: {perf['execution_time_ms']:.2f}ms")
+                        click.echo(f"    Match rate: {perf['match_rate']:.1%}")
+                else:
+                    click.echo("✅ All filters perform within acceptable limits")
+
+        if report:
+            click.echo(f"\n📋 Generating comprehensive efficiency report...")
+            full_report = analytics.generate_efficiency_report(filters)
+            
+            click.echo(f"\n" + "="*50)
+            click.echo(f"📊 FILTER EFFICIENCY REPORT")
+            click.echo(f"Generated: {full_report['generated_at']}")
+            click.echo(f"="*50)
+            
+            summary = full_report['summary']
+            click.echo(f"Total filters: {summary['total_filters']}")
+            click.echo(f"Complex filters: {summary['complex_filters']}")
+            click.echo(f"Unused filters: {summary['unused_filters']}")
+            click.echo(f"Optimization opportunities: {summary['optimization_opportunities']}")
+            click.echo(f"Average complexity: {summary['average_complexity']:.1f}")
+            
+            if summary['optimization_opportunities'] > 0:
+                click.echo(f"\n💡 Recommendations:")
+                click.echo(f"  1. Run 'cleanup-filters --optimize' to consolidate similar filters")
+                click.echo(f"  2. Consider simplifying complex filters")
+                click.echo(f"  3. Remove unused filters to improve performance")
+            
+            click.echo(f"\n📈 For detailed usage analytics, run:")
+            click.echo(f"   python -m inbox_cleaner.cli filter-usage --stats")
+
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
+
+
+@main.command('filter-usage')
+@click.option('--track', is_flag=True, help='Enable filter usage tracking during sync')
+@click.option('--stats', is_flag=True, help='Show filter usage statistics (default)')
+@click.option('--unused', is_flag=True, help='Find unused filters')
+@click.option('--effectiveness', is_flag=True, help='Calculate filter effectiveness metrics')
+@click.option('--days', default=30, type=int, help='Number of days to analyze (default: 30)')
+def filter_usage(track, stats, unused, effectiveness, days):
+    """Track and analyze Gmail filter usage patterns."""
+    
+    if not any([track, stats, unused, effectiveness]):
+        stats = True  # Default action
+    
+    try:
+        # Load configuration
+        config_path = Path("config.yaml")
+        if not config_path.exists():
+            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
+            return
+
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        gmail_config = config['gmail']
+        db_path = config['database']['path']
+
+        # Initialize components
+        db_manager = DatabaseManager(db_path)
+        analytics = FilterAnalytics(db_manager)
+
+        if track:
+            click.echo("🔄 Filter usage tracking is now enabled in the database schema")
+            click.echo("💡 Usage data will be collected during future sync operations")
+            click.echo("📊 Run 'filter-usage --stats' after syncing to view statistics")
+            return
+
+        if stats:
+            click.echo(f"📊 Filter Usage Statistics (last {days} days)")
+            click.echo("=" * 50)
+            
+            usage_stats = analytics.get_filter_usage_stats(days=days)
+            
+            if not usage_stats:
+                click.echo("❌ No filter usage data found")
+                click.echo("💡 Enable tracking with --track and run a sync to collect data")
+                return
+            
+            # Show most used filters
+            active_filters = [stat for stat in usage_stats if stat['usage_count'] > 0]
+            unused_filters = [stat for stat in usage_stats if stat['usage_count'] == 0]
+            
+            click.echo(f"📈 Active filters: {len(active_filters)}")
+            click.echo(f"📉 Unused filters: {len(unused_filters)}")
+            
+            if active_filters:
+                click.echo(f"\n🔥 Most Used Filters:")
+                sorted_active = sorted(active_filters, key=lambda x: x['usage_count'], reverse=True)
+                for stat in sorted_active[:10]:
+                    click.echo(f"  • Filter {stat['filter_id']}: {stat['usage_count']} uses")
+                    if stat['last_used']:
+                        click.echo(f"    Last used: {stat['last_used']}")
+
+        if unused:
+            # Need authentication to get actual filters for comparison
+            authenticator = GmailAuthenticator(gmail_config)
+            click.echo("🔐 Getting credentials...")
+            try:
+                credentials = authenticator.get_valid_credentials()
+            except AuthenticationError as e:
+                click.echo(f"❌ Authentication failed: {e}")
+                click.echo("Run 'auth --setup' first.")
+                return
+
+            service = build('gmail', 'v1', credentials=credentials)
+            
+            # Get existing filters
+            existing = service.users().settings().filters().list(userId='me').execute()
+            filters = existing.get('filter', [])
+            
+            unused_filters = analytics.identify_unused_filters(filters, days=days)
+            
+            click.echo(f"\n🗑️ Unused Filters (no activity in {days} days):")
+            if unused_filters:
+                for unused in unused_filters:
+                    criteria_desc = []
+                    criteria = unused.get('criteria', {})
+                    if 'from' in criteria:
+                        criteria_desc.append(f"From: {criteria['from']}")
+                    if 'to' in criteria:
+                        criteria_desc.append(f"To: {criteria['to']}")
+                    if 'subject' in criteria:
+                        criteria_desc.append(f"Subject: {criteria['subject']}")
+                    
+                    criteria_text = ", ".join(criteria_desc) if criteria_desc else "Unknown criteria"
+                    click.echo(f"  • {criteria_text}")
+                
+                click.echo(f"\n💡 Consider removing {len(unused_filters)} unused filters:")
+                click.echo(f"   python -m inbox_cleaner.cli cleanup-filters --execute")
+            else:
+                click.echo("✅ All filters have been used recently")
+
+        if effectiveness:
+            click.echo(f"\n🎯 Filter Effectiveness Metrics:")
+            effectiveness_metrics = analytics.get_filter_effectiveness_metrics()
+            
+            if not effectiveness_metrics:
+                click.echo("❌ No effectiveness data available")
+                click.echo("💡 Run sync operations to collect effectiveness data")
+                return
+            
+            # Show most and least effective filters
+            if effectiveness_metrics:
+                click.echo(f"\n🌟 Most Effective Filters:")
+                sorted_effective = sorted(effectiveness_metrics, key=lambda x: x['effectiveness_ratio'], reverse=True)
+                for metric in sorted_effective[:5]:
+                    if metric['effectiveness_ratio'] > 0:
+                        click.echo(f"  • Filter {metric['filter_id']}: {metric['effectiveness_ratio']:.1%} effective")
+                        click.echo(f"    {metric['matches']} matches out of {metric['emails_processed']} emails")
+                
+                ineffective = [m for m in effectiveness_metrics if m['effectiveness_ratio'] < 0.01]
+                if ineffective:
+                    click.echo(f"\n⚠️ Low Effectiveness Filters:")
+                    for metric in ineffective[:5]:
+                        click.echo(f"  • Filter {metric['filter_id']}: {metric['effectiveness_ratio']:.1%} effective")
+                        click.echo(f"    Consider reviewing or removing this filter")
 
     except Exception as e:
         click.echo(f"❌ Error: {e}")
