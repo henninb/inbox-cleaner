@@ -518,6 +518,160 @@ class TestCLIFilters:
         assert result.exit_code == 0
         assert 'No filter optimizations available' in result.output
 
+    @patch('inbox_cleaner.cli.Path.exists')
+    def test_cleanup_filters_command_no_config_file(self, mock_exists):
+        """Test cleanup-filters when config file doesn't exist."""
+        # Arrange  
+        mock_exists.return_value = False
+
+        # Act
+        result = self.runner.invoke(main, ['cleanup-filters'])
+
+        # Assert
+        assert result.exit_code == 0
+        assert 'config.yaml not found' in result.output
+
+    @patch('inbox_cleaner.cli.Path.exists')
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.GmailAuthenticator')
+    def test_cleanup_filters_command_auth_failure(self, mock_auth, mock_yaml, mock_open, mock_exists):
+        """Test cleanup-filters command when authentication fails."""
+        # Arrange
+        mock_exists.return_value = True
+        mock_yaml.return_value = self.mock_config
+        mock_auth.return_value.get_valid_credentials.side_effect = AuthenticationError("Auth failed")
+
+        # Act
+        result = self.runner.invoke(main, ['cleanup-filters', '--execute'])
+
+        # Assert
+        assert result.exit_code == 0
+        assert 'Authentication failed: Auth failed' in result.output
+        assert 'Run \'auth --setup\' first' in result.output
+
+    @patch('inbox_cleaner.cli.Path.exists')
+    def test_export_filters_command_no_config_file(self, mock_exists):
+        """Test export-filters when config file doesn't exist."""
+        # Arrange
+        mock_exists.return_value = False
+
+        # Act
+        result = self.runner.invoke(main, ['export-filters'])
+
+        # Assert
+        assert result.exit_code == 0
+        assert 'config.yaml not found' in result.output
+
+    @patch('inbox_cleaner.cli.Path.exists')
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.GmailAuthenticator')
+    def test_export_filters_command_auth_failure(self, mock_auth, mock_yaml, mock_open, mock_exists):
+        """Test export-filters command when authentication fails.""" 
+        # Arrange
+        mock_exists.return_value = True
+        mock_yaml.return_value = self.mock_config
+        mock_auth.return_value.get_valid_credentials.side_effect = AuthenticationError("Auth failed")
+
+        # Act
+        result = self.runner.invoke(main, ['export-filters'])
+
+        # Assert
+        assert result.exit_code == 0
+        assert 'Authentication failed: Auth failed' in result.output
+        assert 'Run \'auth --setup\' first' in result.output
+
+    @patch('inbox_cleaner.cli.Path.exists')
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.GmailAuthenticator')
+    @patch('inbox_cleaner.cli.build')
+    @patch('inbox_cleaner.cli.UnsubscribeEngine')
+    def test_cleanup_filters_command_no_filters_to_cleanup(self, mock_engine, mock_build, mock_auth,
+                                                         mock_yaml, mock_open, mock_exists):
+        """Test cleanup-filters command when no filters exist."""
+        # Arrange
+        mock_exists.return_value = True
+        mock_yaml.return_value = self.mock_config
+        mock_credentials = Mock()
+        mock_auth.return_value.get_valid_credentials.return_value = mock_credentials
+
+        mock_service = Mock()
+        mock_build.return_value = mock_service
+
+        # Mock no existing filters
+        mock_engine_instance = Mock()
+        mock_engine_instance.list_existing_filters.return_value = []
+        mock_engine.return_value = mock_engine_instance
+
+        # Act
+        result = self.runner.invoke(main, ['cleanup-filters'])
+
+        # Assert
+        assert result.exit_code == 0
+        assert 'No filters found to clean up' in result.output
+
+    @patch('inbox_cleaner.cli.Path.exists')
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.GmailAuthenticator')
+    @patch('inbox_cleaner.cli.build')
+    @patch('inbox_cleaner.cli.UnsubscribeEngine')
+    def test_cleanup_filters_optimization_success(self, mock_engine, mock_build, mock_auth,
+                                                 mock_yaml, mock_open, mock_exists):
+        """Test cleanup-filters when optimization succeeds."""
+        # Arrange
+        mock_exists.return_value = True
+        mock_yaml.return_value = self.mock_config
+        mock_credentials = Mock()
+        mock_auth.return_value.get_valid_credentials.return_value = mock_credentials
+
+        mock_service = Mock()
+        mock_build.return_value = mock_service
+
+        # Mock filters that can be optimized
+        mock_filters = [
+            {'id': 'filter1', 'criteria': {'from': 'user1@test.com'}, 'action': {'addLabelIds': ['TRASH']}},
+            {'id': 'filter2', 'criteria': {'from': 'user2@test.com'}, 'action': {'addLabelIds': ['TRASH']}},
+            {'id': 'filter3', 'criteria': {'from': 'user3@test.com'}, 'action': {'addLabelIds': ['TRASH']}}
+        ]
+
+        mock_engine_instance = Mock()
+        mock_engine_instance.list_existing_filters.return_value = mock_filters
+        mock_engine.return_value = mock_engine_instance
+
+        # Mock SpamFilterManager to return optimization failure
+        with patch('inbox_cleaner.cli.SpamFilterManager') as mock_spam_manager:
+            manager_instance = Mock()
+            manager_instance.identify_duplicate_filters.return_value = []
+            manager_instance.optimize_filters.return_value = [
+                {
+                    'type': 'consolidate_domain',
+                    'domain': 'test.com',
+                    'filters_to_remove': mock_filters,
+                    'new_filter': {'criteria': {'from': '*@test.com'}, 'action': {'addLabelIds': ['TRASH']}},
+                    'description': 'Test consolidation'
+                }
+            ]
+            # Mock successful optimization (since the actual logic runs and succeeds)
+            manager_instance.apply_filter_optimizations.return_value = {
+                'success': True,
+                'optimizations_applied': 1,
+                'total_merged': 3,
+                'results': [{'success': True, 'merged_count': 3}],
+                'errors': []
+            }
+            mock_spam_manager.return_value = manager_instance
+
+            # Act
+            result = self.runner.invoke(main, ['cleanup-filters', '--optimize', '--execute'])
+
+            # Assert
+            assert result.exit_code == 0
+            assert 'Applied 1 filter optimizations' in result.output
+            assert 'Merged 3 filters into 1 wildcard filter' in result.output
+
 
 class TestCLIDeleteEmails:
     """Test CLI email deletion functionality."""

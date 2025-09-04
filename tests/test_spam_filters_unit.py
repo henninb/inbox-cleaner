@@ -1,4 +1,5 @@
 import tempfile
+import os
 from pathlib import Path
 from typing import List, Dict
 from unittest.mock import patch
@@ -7,6 +8,7 @@ import yaml
 import pytest
 
 from inbox_cleaner.spam_filters import SpamFilterManager
+from inbox_cleaner.extractor import EmailMetadata
 
 
 class FakeDB:
@@ -543,4 +545,178 @@ def test_apply_filter_optimizations_empty_list():
     delete_mock = service.users.return_value.settings.return_value.filters.return_value.delete
     create_mock.assert_not_called()
     delete_mock.assert_not_called()
+
+
+@pytest.mark.unit
+def test_identify_spam_domains_all_patterns():
+    """Test all spam detection patterns for comprehensive coverage."""
+    
+    # Create test emails that hit all uncovered spam detection lines
+    test_emails = [
+        {'sender_domain': 'unclaimed.com', 'subject': 'You have UNCLAIMED MONEY waiting'},  # Line 50
+        {'sender_domain': 'scam.com', 'subject': 'We need to REACH YOU about your MONEY'},  # Line 50
+        {'sender_domain': 'fake.com', 'subject': 'COSTCO has SELECTED you for a prize'},  # Line 54
+        {'sender_domain': 'scammer.com', 'subject': 'You are CHOSEN for FREE AIRPODS'},  # Line 54  
+        {'sender_domain': 'caps.com', 'subject': 'SCREAMING CAPS WITH $50000 DOLLARS'},  # Line 58
+        {'sender_domain': 'million.com', 'subject': 'Win $10000000 today!'},  # Line 62 - Large amount
+        {'sender_domain': 'normal.com', 'subject': 'Regular email subject'}  # Control case
+    ]
+    
+    # Mock the database to return our test emails
+    fake_db = FakeDB([])
+    fake_db.search_emails = lambda query, per_page: test_emails
+    
+    manager = SpamFilterManager(fake_db)
+    spam_domains = manager.identify_spam_domains()
+    
+    # Should identify all spam domains except the normal one
+    expected_spam = {'unclaimed.com', 'scam.com', 'fake.com', 'scammer.com', 'caps.com', 'million.com'}
+    assert spam_domains == expected_spam
+
+
+@pytest.mark.unit 
+def test_analyze_spam_all_categories():
+    """Test spam analysis with all category patterns for coverage."""
+    # Create test data that hits all spam category detection lines
+    from datetime import datetime
+    test_emails = [
+        # Prize/Winner scams (lines 166-168) - as dict format since analyze_spam expects search_emails result
+        {
+            'message_id': '1',
+            'sender_domain': 'scam.com',
+            'subject': 'CLAIM YOUR PRIZE NOW!'
+        },
+        # Unclaimed money scams (lines 171-173)
+        {
+            'message_id': '2', 
+            'sender_domain': 'scam.com',
+            'subject': 'UNCLAIMED MONEY belongs to you'
+        },
+        # Fake company notifications (lines covered but want comprehensive test)
+        {
+            'message_id': '3',
+            'sender_domain': 'company.com',
+            'subject': 'COSTCO has CHOSEN you for NINJA FOODI'
+        },
+        # Normal email
+        {
+            'message_id': '4',
+            'sender_domain': 'good.com', 
+            'subject': 'Meeting tomorrow'
+        }
+    ]
+    
+    # Create manager with mocked database that returns our test emails
+    manager = SpamFilterManager(FakeDB(test_emails))
+    
+    spam_report = manager.analyze_spam()
+    
+    # Should categorize emails correctly
+    assert 'Prize/Winner Scams' in spam_report['categories']
+    assert 'Unclaimed Money Scams' in spam_report['categories'] 
+    assert 'Fake Company Notifications' in spam_report['categories']
+    
+    # Should identify spam domains
+    expected_spam_domains = {'scam.com', 'company.com'}
+    assert set(spam_report['spam_domains']) == expected_spam_domains
+
+
+@pytest.mark.unit
+def test_save_filters_to_config_no_existing_rules():
+    """Test saving to config when no retention_rules section exists (line 209)."""
+    manager = SpamFilterManager(FakeDB([]))
+    
+    config_content = {
+        'gmail': {'client_id': 'test'},
+        # No 'retention_rules' key
+    }
+    
+    test_rules = [
+        {'domain': 'spam.com', 'retention_days': 0, 'description': 'Test rule'}
+    ]
+    
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        yaml.dump(config_content, f)
+        temp_path = f.name
+    
+    try:
+        manager.save_filters_to_config(temp_path, test_rules)
+        
+        # Read back the config
+        with open(temp_path, 'r') as f:
+            updated_config = yaml.safe_load(f)
+        
+        # Should have created retention_rules section
+        assert 'retention_rules' in updated_config
+        assert len(updated_config['retention_rules']) > 0
+    finally:
+        os.unlink(temp_path)
+
+
+@pytest.mark.unit
+def test_export_filters_to_xml_all_criteria_types():
+    """Test XML export with all criteria types for comprehensive coverage."""
+    manager = SpamFilterManager(FakeDB([]))
+    
+    # Test filters with different criteria to hit all XML export lines
+    filters = [
+        {
+            'id': 'filter1',
+            'criteria': {'from': 'test@example.com', 'to': 'me@test.com'},
+            'action': {'addLabelIds': ['SPAM'], 'removeLabelIds': ['UNREAD']}
+        },
+        {
+            'id': 'filter2', 
+            'criteria': {'subject': 'Test Subject', 'query': 'has:attachment'},
+            'action': {'addLabelIds': ['IMPORTANT']}
+        },
+        {
+            'id': 'filter3',
+            'criteria': {'from': 'newsletter@company.com'},
+            'action': {'removeLabelIds': ['INBOX', 'UNREAD']}
+        }
+    ]
+    
+    xml_content = manager.export_filters_to_xml(filters)
+    
+    # Should contain all criteria types (lines 318, 320, 322)
+    assert '<apps:property name="to" value="me@test.com"/>' in xml_content
+    assert '<apps:property name="subject" value="Test Subject"/>' in xml_content  
+    assert '<apps:property name="hasTheWord" value="has:attachment"/>' in xml_content
+    
+    # Should contain spam action (line 331)
+    assert '<apps:property name="shouldSpam" value="true"/>' in xml_content
+    
+    # Should contain mark as read action (lines 339-340)
+    assert '<apps:property name="shouldMarkAsRead" value="true"/>' in xml_content
+    assert '<apps:property name="shouldArchive" value="true"/>' in xml_content
+
+
+@pytest.mark.unit
+def test_merge_similar_filters_no_failed_deletions():
+    """Test successful merge without any deletion failures."""
+    manager = SpamFilterManager(FakeDB([]))
+    
+    from unittest.mock import MagicMock
+    service = MagicMock()
+    service.users.return_value.settings.return_value.filters.return_value.create.return_value.execute.return_value = {'id': 'new123'}
+    service.users.return_value.settings.return_value.filters.return_value.delete.return_value.execute.return_value = None
+    
+    filters_to_merge = [
+        {'id': 'f1', 'criteria': {'from': 'user1@test.com'}, 'action': {'addLabelIds': ['TRASH']}},
+        {'id': 'f2', 'criteria': {'from': 'user2@test.com'}, 'action': {'addLabelIds': ['TRASH']}}
+    ]
+    
+    new_filter = {
+        'criteria': {'from': '*@test.com'},
+        'action': {'addLabelIds': ['TRASH']}
+    }
+    
+    result = manager.merge_similar_filters(service, filters_to_merge, new_filter)
+    
+    # Should be successful with no failed deletions (line 463 - successful path)
+    assert result['success'] is True
+    assert result['merged_count'] == 2
+    assert result['failed_deletions'] == 0
+    assert result['new_filter_id'] == 'new123'
 
