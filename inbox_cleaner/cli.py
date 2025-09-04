@@ -285,74 +285,6 @@ def web(start, port, host):
 
 
 @main.command()
-def diagnose():
-    """Run diagnostic tool to troubleshoot issues."""
-    click.echo("🔍 Running diagnostics...")
-    click.echo()
-
-    # Check config file
-    config_path = Path("config.yaml")
-    if config_path.exists():
-        click.echo("✅ config.yaml found")
-        try:
-            with open(config_path, 'r') as f:
-                config = yaml.safe_load(f)
-            if 'gmail' in config and config['gmail'].get('client_id'):
-                click.echo("✅ Gmail configuration found")
-            else:
-                click.echo("❌ Gmail configuration missing or incomplete")
-        except Exception as e:
-            click.echo(f"❌ Error reading config: {e}")
-    else:
-        click.echo("❌ config.yaml not found")
-
-    # Check authentication
-    try:
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
-        gmail_config = config['gmail']
-        authenticator = GmailAuthenticator(gmail_config)
-        credentials = authenticator.load_credentials()
-
-        if credentials:
-            click.echo("✅ Stored credentials found")
-            if getattr(credentials, 'valid', False):
-                click.echo("✅ Credentials are valid")
-            else:
-                click.echo("⚠️  Credentials may need refresh")
-        else:
-            click.echo("❌ No stored credentials - run 'auth --setup'")
-    except Exception as e:
-        click.echo(f"❌ Authentication check failed: {e}")
-
-    # Check database
-    try:
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
-        db_path = config['database']['path']
-
-        if Path(db_path).exists():
-            with DatabaseManager(db_path) as db:
-                stats = db.get_statistics()
-                click.echo(f"✅ Database found with {stats['total_emails']} emails")
-        else:
-            click.echo("⚠️  Database not found - run 'sync' to create")
-    except Exception as e:
-        click.echo(f"❌ Database check failed: {e}")
-
-    click.echo()
-    click.echo("💡 For comprehensive troubleshooting, run:")
-    click.echo("   python diagnose_issues.py")
-    click.echo()
-    click.echo("🔧 Common issues:")
-    click.echo("   • Gmail API not enabled: Most common cause of 'No emails found'")
-    click.echo("   • Wrong credentials: Check Client ID and Secret")
-    click.echo("   • Authentication errors: Email not added as test user")
-    click.echo()
-    click.echo("📖 See README.md 'Common Setup Issues' for detailed solutions")
-
-
-@main.command()
 def status():
     """Show overall system status."""
     click.echo("📊 Inbox Cleaner Status")
@@ -531,6 +463,41 @@ def list_filters():
                     click.echo(f"      Action: Auto-delete")
                 else:
                     click.echo(f"      Action: Add labels {labels}")
+            click.echo()
+
+        # Check for duplicate filters
+        from .spam_filters import SpamFilterManager
+        spam_filter_manager = SpamFilterManager(db_manager)
+        duplicates = spam_filter_manager.identify_duplicate_filters(filters)
+        
+        if duplicates:
+            click.echo("⚠️  DUPLICATE FILTERS FOUND:")
+            click.echo()
+            for duplicate_group in duplicates:
+                criteria = duplicate_group['criteria']
+                duplicate_filters = duplicate_group['filters']
+                
+                # Show the criteria that's duplicated
+                criteria_desc = []
+                if 'from' in criteria:
+                    criteria_desc.append(f"From: {criteria['from']}")
+                if 'to' in criteria:
+                    criteria_desc.append(f"To: {criteria['to']}")
+                if 'subject' in criteria:
+                    criteria_desc.append(f"Subject: {criteria['subject']}")
+                if 'query' in criteria:
+                    criteria_desc.append(f"Query: {criteria['query']}")
+                
+                criteria_text = ", ".join(criteria_desc) if criteria_desc else str(criteria)
+                click.echo(f"   🔍 Duplicate criteria: {criteria_text}")
+                click.echo(f"   📄 Found in {len(duplicate_filters)} filters:")
+                
+                for dup_filter in duplicate_filters:
+                    filter_id = dup_filter.get('id', 'unknown')[:15]
+                    click.echo(f"      • Filter ID: {filter_id}...")
+                click.echo()
+        else:
+            click.echo("✅ No duplicate filters found")
             click.echo()
 
     except Exception as e:
@@ -987,23 +954,23 @@ def create_spam_filters(analyze, create_filters, update_config, dry_run):
             existing = service.users().settings().filters().list(userId='me').execute()
             existing_filters = existing.get('filter', [])
 
-            for filter_config in gmail_filters:
-                try:
-                    # Check if filter already exists (basic check)
-                    criteria_str = str(filter_config['criteria'])
-                    exists = any(str(f.get('criteria', {})) == criteria_str for f in existing_filters)
+            # Use proper duplicate detection
+            non_duplicate_filters = spam_filter_manager.filter_out_duplicates(gmail_filters, existing_filters)
+            
+            duplicates_skipped = len(gmail_filters) - len(non_duplicate_filters)
+            if duplicates_skipped > 0:
+                click.echo(f"⏭️  Skipped {duplicates_skipped} duplicate filters")
 
-                    if not exists:
-                        service.users().settings().filters().create(
-                            userId='me',
-                            body={
-                                'criteria': filter_config['criteria'],
-                                'action': filter_config['action']
-                            }
-                        ).execute()
-                        created_count += 1
-                    else:
-                        click.echo(f"⏭️  Skipped duplicate filter")
+            for filter_config in non_duplicate_filters:
+                try:
+                    service.users().settings().filters().create(
+                        userId='me',
+                        body={
+                            'criteria': filter_config['criteria'],
+                            'action': filter_config['action']
+                        }
+                    ).execute()
+                    created_count += 1
 
                 except Exception as e:
                     click.echo(f"❌ Failed to create filter: {e}")

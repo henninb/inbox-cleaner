@@ -246,3 +246,51 @@ class SpamFilterManager:
             'retention_rules': retention_rules,
             'gmail_filters': gmail_filters
         }
+
+    def filter_out_duplicates(self, new_filters: List[Dict[str, Any]], existing_filters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filter out duplicate filters from new_filters based on existing_filters criteria."""
+        # Extract criteria from existing filters for comparison
+        existing_criteria = set()
+        for existing_filter in existing_filters:
+            criteria = existing_filter.get('criteria', {})
+            # Convert criteria dict to a hashable format for comparison
+            criteria_str = str(sorted(criteria.items()))
+            existing_criteria.add(criteria_str)
+        
+        # Filter out duplicates from new filters
+        non_duplicates = []
+        for new_filter in new_filters:
+            criteria = new_filter.get('criteria', {})
+            criteria_str = str(sorted(criteria.items()))
+            
+            if criteria_str not in existing_criteria:
+                non_duplicates.append(new_filter)
+        
+        return non_duplicates
+
+    def identify_duplicate_filters(self, filters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Identify duplicate filters in a list and return groups of duplicates."""
+        # Group filters by their criteria
+        criteria_groups = defaultdict(list)
+        
+        for filter_item in filters:
+            criteria = filter_item.get('criteria', {})
+            # Convert criteria dict to a hashable format for grouping
+            criteria_str = str(sorted(criteria.items()))
+            criteria_groups[criteria_str].append(filter_item)
+        
+        # Find groups with more than one filter (duplicates)
+        duplicates = []
+        for criteria_str, filter_list in criteria_groups.items():
+            if len(filter_list) > 1:
+                # Convert criteria string back to dict for display
+                criteria_items = eval(criteria_str)  # Safe here since we created it
+                criteria_dict = dict(criteria_items)
+                
+                duplicates.append({
+                    'criteria': criteria_dict,
+                    'filters': filter_list,
+                    'count': len(filter_list)
+                })
+        
+        return duplicates

@@ -104,6 +104,113 @@ class TestCLIFilters:
         assert result.exit_code != 0
         assert 'Authentication failed' in result.output
 
+    @patch('inbox_cleaner.cli.Path.exists')
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.GmailAuthenticator')
+    @patch('inbox_cleaner.cli.build')
+    @patch('inbox_cleaner.cli.UnsubscribeEngine')
+    def test_list_filters_shows_duplicates(self, mock_engine, mock_build, mock_auth,
+                                         mock_yaml, mock_open, mock_exists):
+        """Test that list-filters command identifies and shows duplicate filters."""
+        # Arrange
+        mock_exists.return_value = True
+        mock_yaml.return_value = self.mock_config
+        mock_credentials = Mock()
+        mock_auth.return_value.get_valid_credentials.return_value = mock_credentials
+
+        mock_service = Mock()
+        mock_build.return_value = mock_service
+
+        # Mock filters with duplicates
+        mock_filters = [
+            {
+                'id': 'filter1',
+                'criteria': {'from': 'spam@example.com'},
+                'action': {'addLabelIds': ['TRASH']}
+            },
+            {
+                'id': 'filter2', 
+                'criteria': {'from': 'spam@example.com'},  # Duplicate criteria
+                'action': {'addLabelIds': ['TRASH']}
+            },
+            {
+                'id': 'filter3',
+                'criteria': {'subject': 'WIN $*'},
+                'action': {'addLabelIds': ['TRASH']}
+            },
+            {
+                'id': 'filter4',
+                'criteria': {'from': 'unique@test.com'},  # Unique
+                'action': {'addLabelIds': ['INBOX']}
+            }
+        ]
+
+        mock_engine_instance = Mock()
+        mock_engine_instance.list_existing_filters.return_value = mock_filters
+        mock_engine.return_value = mock_engine_instance
+
+        # Act
+        result = self.runner.invoke(main, ['list-filters'])
+
+        # Assert
+        assert result.exit_code == 0
+        # Should show all filters
+        assert 'Filter 1' in result.output
+        assert 'Filter 2' in result.output
+        assert 'Filter 3' in result.output
+        assert 'Filter 4' in result.output
+        
+        # Should identify and warn about duplicates
+        assert 'DUPLICATE FILTERS FOUND' in result.output
+        assert 'spam@example.com' in result.output  # The duplicate criteria
+        assert 'filter1' in result.output
+        assert 'filter2' in result.output
+
+    @patch('inbox_cleaner.cli.Path.exists')
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.GmailAuthenticator')
+    @patch('inbox_cleaner.cli.build')
+    @patch('inbox_cleaner.cli.UnsubscribeEngine')
+    def test_list_filters_no_duplicates_message(self, mock_engine, mock_build, mock_auth,
+                                              mock_yaml, mock_open, mock_exists):
+        """Test that list-filters shows no duplicates message when all filters are unique."""
+        # Arrange
+        mock_exists.return_value = True
+        mock_yaml.return_value = self.mock_config
+        mock_credentials = Mock()
+        mock_auth.return_value.get_valid_credentials.return_value = mock_credentials
+
+        mock_service = Mock()
+        mock_build.return_value = mock_service
+
+        # Mock filters with no duplicates
+        mock_filters = [
+            {
+                'id': 'filter1',
+                'criteria': {'from': 'unique1@example.com'},
+                'action': {'addLabelIds': ['TRASH']}
+            },
+            {
+                'id': 'filter2',
+                'criteria': {'from': 'unique2@example.com'},
+                'action': {'addLabelIds': ['INBOX']}
+            }
+        ]
+
+        mock_engine_instance = Mock()
+        mock_engine_instance.list_existing_filters.return_value = mock_filters
+        mock_engine.return_value = mock_engine_instance
+
+        # Act
+        result = self.runner.invoke(main, ['list-filters'])
+
+        # Assert
+        assert result.exit_code == 0
+        assert '✅ No duplicate filters found' in result.output
+        assert 'DUPLICATE FILTERS FOUND' not in result.output
+
 
 class TestCLIDeleteEmails:
     """Test CLI email deletion functionality."""
@@ -1267,87 +1374,6 @@ class TestCLIWebCommand:
         assert result.exit_code == 0
         assert 'config.yaml not found' in result.output
 
-
-class TestCLIDiagnoseCommand:
-    """Test CLI diagnose command functionality."""
-
-    def setup_method(self):
-        """Setup test environment."""
-        self.runner = CliRunner()
-        self.mock_config = {
-            'gmail': {
-                'client_id': 'test-client-id',
-                'client_secret': 'test-secret',
-                'scopes': ['test-scope']
-            },
-            'database': {
-                'path': './test.db'
-            }
-        }
-
-    @patch('inbox_cleaner.cli.Path.exists')
-    @patch('inbox_cleaner.cli.open')
-    @patch('inbox_cleaner.cli.yaml.safe_load')
-    @patch('inbox_cleaner.cli.GmailAuthenticator')
-    @patch('inbox_cleaner.cli.DatabaseManager')
-    def test_diagnose_all_good(self, mock_db_class, mock_auth_class, mock_yaml, mock_open, mock_exists):
-        """Test diagnose command when everything is configured correctly."""
-        # Arrange
-        # Mock Path.exists to return True for config and test db files
-        mock_exists.return_value = True
-        mock_yaml.return_value = self.mock_config
-
-        mock_auth = Mock()
-        mock_auth_class.return_value = mock_auth
-        mock_credentials = Mock()
-        mock_credentials.valid = True
-        mock_auth.load_credentials.return_value = mock_credentials
-
-        mock_db = Mock()
-        mock_db_class.return_value.__enter__.return_value = mock_db
-        mock_db.get_statistics.return_value = {'total_emails': 100}
-
-        # Act
-        result = self.runner.invoke(main, ['diagnose'])
-
-        # Assert
-        assert result.exit_code == 0
-        assert 'config.yaml found' in result.output
-        assert 'Gmail configuration found' in result.output
-        assert 'Stored credentials found' in result.output
-        assert 'Credentials are valid' in result.output
-        assert 'Database found with 100 emails' in result.output
-
-    @patch('inbox_cleaner.cli.Path.exists')
-    def test_diagnose_no_config(self, mock_exists):
-        """Test diagnose command when config file doesn't exist."""
-        # Arrange
-        mock_exists.return_value = False
-
-        # Act
-        result = self.runner.invoke(main, ['diagnose'])
-
-        # Assert
-        assert result.exit_code == 0
-        assert 'config.yaml not found' in result.output
-        assert 'Common Setup Issues' in result.output
-
-    @patch('inbox_cleaner.cli.Path.exists')
-    @patch('inbox_cleaner.cli.open')
-    @patch('inbox_cleaner.cli.yaml.safe_load')
-    @patch('inbox_cleaner.cli.GmailAuthenticator')
-    def test_diagnose_invalid_config(self, mock_auth_class, mock_yaml, mock_open, mock_exists):
-        """Test diagnose command when config is invalid."""
-        # Arrange
-        mock_exists.return_value = True
-        mock_yaml.return_value = {'invalid': 'config'}
-
-        # Act
-        result = self.runner.invoke(main, ['diagnose'])
-
-        # Assert
-        assert result.exit_code == 0
-        assert 'Gmail configuration missing' in result.output
 
 
 class TestCLIStatusCommand:

@@ -1,171 +1,266 @@
-# Gmail Inbox Cleaner
+# Inbox Cleaner (Gmail)
 
-A privacy-focused Gmail inbox management tool that uses AI assistance while keeping your sensitive data local and secure.
+Privacy‑focused Gmail inbox management with local storage, rich CLI, and strong test coverage. No email content leaves your machine.
 
-## 🎯 What It Does
+## Highlights
 
-- **Extracts** email metadata (sender domains, subjects, dates, labels) from your Gmail
-- **Protects Privacy** by hashing email addresses with SHA-256
-- **Stores Locally** in SQLite database (no cloud storage)
-- **Analyzes Patterns** to identify newsletters, promotions, and important emails
-- **AI-Ready** for future integration with Claude for cleanup recommendations
+- Extracts privacy‑safe metadata (domains, subjects, dates, labels)
+- Stores locally in SQLite (`inbox_cleaner.db`)
+- Robust CLI for sync, spam cleanup, retention, and utilities
+- OAuth2 authentication with refresh; credentials never leave your device
+- Test suite with ≥90% coverage gate
 
-## 🔒 Privacy Features
+## Privacy Guarantees
 
-- ✅ **No email content** sent to AI services
-- ✅ **Email addresses hashed** (irreversible SHA-256)
-- ✅ **Local storage only** (SQLite database)
-- ✅ **Metadata-only extraction** (domains, subjects, dates)
-- ✅ **OAuth2 authentication** (secure Google API access)
+- No email content sent externally
+- Email addresses can be hashed using SHA‑256 (privacy‑safe)
+- All data is stored locally (SQLite)
+- OAuth2 flows only against Google APIs
 
-## ⚡ Performance
+## Project Structure
 
-- **Batch processing** optimized for large inboxes (tested with 40k+ emails)
-- **Progress tracking** with real-time updates
-- **Error resilience** (skips failed emails, continues processing)
-- **Efficient database** with proper indexing
+```
+inbox-cleaner/
+├── inbox_cleaner/
+│   ├── auth.py                 # OAuth2 authentication
+│   ├── extractor.py            # Gmail metadata extraction
+│   ├── database.py             # SQLite DB manager
+│   ├── cli.py                  # CLI entry point (inbox-cleaner)
+│   ├── retention.py            # Retention manager and config
+│   ├── retention_manager.py    # Retention helpers
+│   ├── spam_rules.py           # Spam rule engine
+│   ├── spam_filters.py         # Spam filter manager
+│   ├── cleanup_engine.py       # Unsubscribe/delete workflows
+│   ├── sync.py                 # Synchronizer (Gmail ↔ DB)
+│   └── web.py                  # Dev web server (optional)
+├── tests/                      # Pytest suite
+├── config.yaml.example         # Copy to config.yaml
+├── setup_credentials.py        # OAuth local setup wizard
+├── real_demo.py                # Demo script (optional)
+├── demo.py                     # Mock demo (optional)
+├── pyproject.toml              # Packaging and entry point
+└── README.md
+```
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Python 3.9+
-- Google account with Gmail access
-
-### Installation
-
-1. **Clone and install dependencies:**
-   ```bash
-   git clone <your-repo>
-   cd inbox-cleaner
-   pip install -e .
-   ```
-
-2. **Set up Gmail API credentials:**
-   ```bash
-   python setup_credentials.py
-   ```
-
-   This will guide you through:
-   - Google Cloud Console setup
-   - OAuth2 credential creation
-   - Configuration file creation
-
-3. **Test authentication:**
-   ```bash
-   python real_demo.py --auth
-   ```
-
-4. **Extract your first emails:**
-   ```bash
-   python real_demo.py --extract 10
-   ```
-
-5. **View analysis:**
-   ```bash
-   python real_demo.py --stats
-   ```
-
-## 📋 Gmail API Setup (Complete Guide)
-
-### Prerequisites
-- Free Google account (no billing/credit card required)
-- Gmail account with emails to analyze
-- 10-15 minutes for setup
-
-### Step 1: Google Cloud Console Setup
-
-1. **Go to Google Cloud Console**: https://console.cloud.google.com/
-2. **Sign in** with your Google account (same one with Gmail you want to clean)
-3. **Create a new project**:
-   - Click "Select a project" dropdown at top
-   - Click "NEW PROJECT"
-   - **Project name**: `gmail-inbox-cleaner` (or your choice)
-   - **Location**: Leave as default
-   - Click "CREATE"
-   - **Wait** for project creation (~30 seconds)
-4. **Select your new project** from the dropdown
-
-### Step 2: Enable Gmail API (CRITICAL STEP)
-
-🚨 **This is the most commonly missed step that causes "No emails found" errors**
-
-1. **Navigate to APIs & Services**:
-   - Left sidebar → "APIs & Services" → "Library"
-2. **Search for Gmail API**:
-   - Search box: type "Gmail API"
-   - Click on "Gmail API" from results
-3. **Enable the API**:
-   - Click the blue "ENABLE" button
-   - Wait for confirmation (~30 seconds)
-   - You should see "API enabled" status
-
-**⚠️ Common Issue**: If you skip this step, authentication will work but email extraction will fail with 403 errors.
-
-### Step 3: Configure OAuth Consent Screen
-
-1. **Go to OAuth consent screen**:
-   - "APIs & Services" → "OAuth consent screen"
-2. **Choose user type**:
-   - Select "External" (unless you have Google Workspace)
-   - Click "CREATE"
-3. **Fill required fields**:
-   - **App name**: `Gmail Inbox Cleaner`
-   - **User support email**: Your email (should auto-populate)
-   - **App logo**: Leave blank
-   - **App domain**: Leave blank
-   - **Authorized domains**: Leave blank
-   - **Developer contact information**: Your email
-4. **Click "SAVE AND CONTINUE"**
-5. **Scopes page**:
-   - Don't add any scopes
-   - Click "SAVE AND CONTINUE"
-6. **Test users page**:
-   - Click "ADD USERS"
-   - Enter your Gmail address: `your.email@gmail.com`
-   - Click "ADD"
-   - Click "SAVE AND CONTINUE"
-7. **Summary page**: Click "BACK TO DASHBOARD"
-
-### Step 4: Create OAuth2 Credentials
-
-1. **Go to Credentials**:
-   - "APIs & Services" → "Credentials"
-2. **Create OAuth client ID**:
-   - Click "CREATE CREDENTIALS" → "OAuth client ID"
-   - **Application type**: "Desktop application" (NOT Web application)
-   - **Name**: `Gmail Inbox Cleaner Desktop`
-   - Click "CREATE"
-3. **Save your credentials**:
-   - **Copy Client ID**: `123456789-abc...@apps.googleusercontent.com`
-   - **Copy Client Secret**: `GOCSPX-abc123...`
-   - Optionally click "DOWNLOAD JSON" for backup
-   - Click "OK"
-
-### Step 5: Run Interactive Setup
+## Install (Dev)
 
 ```bash
-cd /home/henninb/projects/github.com/henninb/inbox-cleaner
+pip install -e .[dev]
+```
+
+## Configuration
+
+1) Create `config.yaml` from the example template:
+
+```bash
+cp config.yaml.example config.yaml
+```
+
+2) Run OAuth setup (desktop flow or web server flow) to populate credentials:
+
+```bash
 python setup_credentials.py
 ```
 
-Enter your Client ID and Client Secret when prompted.
+This configures Gmail OAuth and writes client settings into `config.yaml`. Your tokens are stored securely (e.g., OS keyring).
 
-### Step 6: Test Setup
+## CLI Usage
+
+Entry point: `inbox-cleaner` (configured in `pyproject.toml`).
 
 ```bash
-python real_demo.py --auth
+inbox-cleaner --help
 ```
 
-**Expected behavior**:
-1. Browser opens automatically
-2. Google login page (if not logged in)
-3. Permission request page
-4. You might see "This app isn't verified" warning:
-   - Click "Advanced"
-   - Click "Go to Gmail Inbox Cleaner (unsafe)"
-5. Grant permissions
-6. Success message in terminal
+### Auth
+
+```bash
+inbox-cleaner auth --setup           # interactive authentication
+inbox-cleaner auth --status          # show status
+inbox-cleaner auth --logout          # clear credentials
+inbox-cleaner auth --device-flow     # device flow (desktop OAuth client)
+inbox-cleaner auth --web-server      # temporary local web server flow
+```
+
+### Sync
+
+```bash
+inbox-cleaner sync --initial                 # initial sync from Gmail
+inbox-cleaner sync --limit 500               # limit synced messages
+inbox-cleaner sync --with-progress           # show progress
+inbox-cleaner sync --fast                    # minimal output
+```
+
+### Filters and Unsubscribe
+
+```bash
+inbox-cleaner list-filters                   # list existing Gmail filters
+inbox-cleaner apply-filters --dry-run        # default behavior (no changes)
+inbox-cleaner apply-filters --execute        # apply auto-delete filters
+inbox-cleaner find-unsubscribe --domain example.com
+```
+
+### Spam Cleanup and Rules
+
+```bash
+# Analyze emails in DB for spam patterns
+inbox-cleaner spam-cleanup --analyze --limit 1000
+
+# Create predefined spam rules file
+inbox-cleaner spam-cleanup --setup-rules
+
+# Create Gmail filters based on detected spam domains
+inbox-cleaner create-spam-filters --create-filters --dry-run
+inbox-cleaner create-spam-filters --create-filters
+
+# Update config.yaml with retention rules for spam domains
+inbox-cleaner create-spam-filters --update-config --dry-run
+inbox-cleaner create-spam-filters --update-config
+```
+
+### Mark as Read
+
+```bash
+inbox-cleaner mark-read                      # dry-run by default
+inbox-cleaner mark-read --query "from:news@site.com is:unread" --execute
+inbox-cleaner mark-read --batch-size 300 --limit 1000
+```
+
+### Retention
+
+```bash
+inbox-cleaner retention --analyze
+inbox-cleaner retention --cleanup --dry-run
+inbox-cleaner retention --cleanup --override "usps.com:7,spotify.com:14"
+inbox-cleaner retention --cleanup --show-retained
+```
+
+### Web (Development)
+
+```bash
+inbox-cleaner web --start --host 127.0.0.1 --port 8000
+```
+
+### Status
+
+```bash
+inbox-cleaner status
+```
+
+## CLI Options
+
+Below is a quick reference of CLI options per command.
+
+### auth
+
+| Option          | Type        | Default | Description                                                   |
+|-----------------|-------------|---------|---------------------------------------------------------------|
+| `--setup`       | flag        | false   | Perform interactive authentication and save credentials.      |
+| `--status`      | flag        | false   | Show authentication status.                                   |
+| `--logout`      | flag        | false   | Clear stored credentials (keyring and file).                  |
+| `--device-flow` | flag        | false   | Use device flow (requires a desktop OAuth client).            |
+| `--web-server`  | flag        | false   | Use a temporary local web server for authentication.          |
+
+### sync
+
+| Option            | Type        | Default | Description                                                   |
+|-------------------|-------------|---------|---------------------------------------------------------------|
+| `--initial`       | flag        | false   | Initial sync (Gmail as source of truth).                      |
+| `--batch-size`    | int         | 1000    | Batch size for processing (internal extraction).              |
+| `--with-progress` | flag        | false   | Show progress updates.                                        |
+| `--limit`         | int         | None    | Limit the number of emails to sync.                           |
+| `--fast`          | flag        | false   | Minimal output; focus on high‑level progress.                 |
+
+### list-filters
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| —      | —    | —       | Lists existing Gmail filters. |
+
+### apply-filters
+
+| Option       | Type | Default | Description                                       |
+|--------------|------|---------|---------------------------------------------------|
+| `--dry-run`  | flag | true    | Preview actions; no changes made (default mode).  |
+| `--execute`  | flag | false   | Apply auto‑delete filters and delete matching email. |
+
+Note: If neither `--dry-run` nor `--execute` is provided, the command defaults to dry‑run.
+
+### find-unsubscribe
+
+| Option      | Type   | Default | Description                                 |
+|-------------|--------|---------|---------------------------------------------|
+| `--domain`  | string | —       | Domain to search for unsubscribe links (req). |
+
+### spam-cleanup
+
+| Option          | Type | Default | Description                                        |
+|-----------------|------|---------|----------------------------------------------------|
+| `--analyze`     | flag | true*   | Analyze emails in DB for spam patterns.            |
+| `--setup-rules` | flag | false   | Create and save predefined spam rules file.        |
+| `--dry-run`     | flag | false   | Preview deletion based on spam rules.              |
+| `--execute`     | flag | false   | Delete emails matching active spam rules.          |
+| `--limit`       | int  | 1000    | Limit number of emails to analyze/process.         |
+
+*If no flags are provided, `--analyze` is assumed by default.
+
+### create-spam-filters
+
+| Option              | Type | Default | Description                                                  |
+|---------------------|------|---------|--------------------------------------------------------------|
+| `--analyze`         | flag | true*   | Run analysis of DB to identify spam domains.                 |
+| `--create-filters`  | flag | false   | Create Gmail filters for detected spam domains.              |
+| `--update-config`   | flag | false   | Write retention rules for spam domains into `config.yaml`.   |
+| `--dry-run`         | flag | false   | Preview actions (filters/config changes) without applying.   |
+
+*If no action flags are provided, `--analyze` runs by default.
+
+### mark-read
+
+| Option                   | Type   | Default                  | Description                                                      |
+|--------------------------|--------|--------------------------|------------------------------------------------------------------|
+| `--query`                | string | None                     | Gmail search query (default selects all unread).                  |
+| `--batch-size`           | int    | 500                      | Batch size for API calls (clamped to 1..500).                     |
+| `--limit`                | int    | None                     | Optional maximum messages to process.                             |
+| `--inbox-only`           | flag   | false                    | Restrict default query to Inbox only.                             |
+| `--include-spam-trash`   | flag   | false                    | Include Spam/Trash in default query.                              |
+| `--execute`              | flag   | false                    | Apply changes (otherwise dry‑run prints what would be changed).   |
+
+### retention
+
+| Option            | Type         | Default | Description                                                            |
+|-------------------|--------------|---------|------------------------------------------------------------------------|
+| `--analyze`       | flag         | true*   | Analyze retention candidates (default action).                          |
+| `--cleanup`       | flag         | false   | Delete emails according to retention rules.                             |
+| `--config`        | path (exist) | None    | Use an alternate `config.yaml` file.                                    |
+| `--override`      | string       | None    | Override rules like `"usps.com:7,spotify.com:14"`.                     |
+| `--dry-run`       | flag         | false   | Preview cleanup without deleting.                                      |
+| `--show-retained` | flag         | false   | After cleanup, show retained emails under the policy.                   |
+
+*If neither `--analyze` nor `--cleanup` is provided, `--analyze` is assumed.
+
+### web
+
+| Option     | Type   | Default       | Description                            |
+|------------|--------|---------------|----------------------------------------|
+| `--start`  | flag   | false         | Start the development web interface.   |
+| `--host`   | string | 127.0.0.1     | Host interface to bind.                |
+| `--port`   | int    | 8000          | Port to bind.                          |
+
+### status
+
+| Option | Type | Default | Description               |
+|--------|------|---------|---------------------------|
+| —      | —    | —       | Prints overall status.    |
+
+## Gmail API Setup (Summary)
+
+1) Create a Google Cloud project and enable the Gmail API
+2) Configure the OAuth Consent Screen (External) and add yourself as a Test User
+3) Create OAuth client credentials (Desktop Application)
+4) Run `python setup_credentials.py` and follow prompts
+
+That’s it — your `config.yaml` will be updated and credentials stored securely.
 
 ## 🚨 Common Setup Issues & Solutions
 
@@ -300,51 +395,25 @@ python real_demo.py --auth
 5. **Web Dashboard** - FastAPI interface for reviewing actions
 6. **Action Engine** - Execute cleanup actions (delete, label, archive)
 
-## 🧪 Testing
+## Development & Testing
 
-Run the comprehensive test suite:
+Common workflow:
 
 ```bash
-# All tests
-python -m pytest tests/ -v
+pip install -e .[dev]
 
-# With coverage
-python -m pytest tests/ --cov=inbox_cleaner --cov-report=term-missing
+# Format, lint, type-check
+black .
+flake8 inbox_cleaner tests
+mypy inbox_cleaner
 
-# Specific modules
-python -m pytest tests/test_auth.py -v
-python -m pytest tests/test_extractor.py -v
-python -m pytest tests/test_database.py -v
-python -m pytest tests/test_integration.py -v
+# Run tests
+pytest -m "not slow" --cov=inbox_cleaner --cov-report=term-missing
 ```
 
-**Test Coverage:**
-- 49 tests across all modules
-- 83%+ coverage on each core module
-- Integration tests verify end-to-end functionality
-
-## 📁 Project Structure
-
-```
-inbox-cleaner/
-├── inbox_cleaner/          # Main package
-│   ├── __init__.py
-│   ├── auth.py            # OAuth2 authentication
-│   ├── extractor.py       # Gmail data extraction
-│   ├── database.py        # SQLite operations
-│   └── cli.py             # Command-line interface
-├── tests/                 # Comprehensive test suite
-│   ├── test_auth.py
-│   ├── test_extractor.py
-│   ├── test_database.py
-│   └── test_integration.py
-├── real_demo.py          # Real Gmail integration demo
-├── demo.py               # Mock demo (no credentials needed)
-├── setup_credentials.py  # Interactive credential setup
-├── config.yaml.example   # Configuration template
-├── pyproject.toml        # Package configuration
-└── README.md             # This file
-```
+Notes:
+- Coverage gate is set to 90% (mirrored locally via pytest.ini)
+- Pytest marks available: `unit`, `integration`, `slow`
 
 ## ⚙️ Configuration
 
@@ -365,51 +434,51 @@ app:
   max_emails_per_run: 5000      # Safety limit
 ```
 
-## 🔒 Security Notes
+## Security Notes
 
-- **Credentials**: Stored in `config.yaml` - keep this file secure
-- **OAuth tokens**: Stored in system keyring (macOS Keychain, Windows Credential Manager, Linux Secret Service)
-- **Email data**: Only metadata stored locally in SQLite
-- **Privacy**: Email addresses are hashed with SHA-256 (irreversible)
+- Never commit real `config.yaml` or tokens — use `config.yaml.example` as a template
+- OAuth tokens are stored in the OS keyring (Keychain/Credential Manager/Secret Service)
+- Email data is metadata-only and stored locally in SQLite
+- Optional hashing (SHA‑256) preserves privacy where required
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
-### "Authentication failed"
-- Check your Client ID and Client Secret
+Authentication failed
+- Verify Client ID/Secret and OAuth client type (Desktop)
 - Ensure Gmail API is enabled in Google Cloud Console
-- Try deleting stored credentials: check your system keyring for "inbox-cleaner" entries
+- Re-run `inbox-cleaner auth --setup`
 
-### "No emails found"
-- Check your Gmail account has emails
-- Verify you granted the necessary permissions during OAuth flow
-- Try a smaller number first: `--extract 5`
+No emails found
+- Double-check Gmail API enablement and that you authenticated the right account
+- Try a small limit first (e.g., `--limit 5`) and check logs
 
-### "Database errors"
-- Check file permissions on the database path
-- Ensure the directory exists
-- Try a different database path in `config.yaml`
+Database errors
+- Check permissions for the database path
+- Ensure the directory exists or adjust `database.path` in `config.yaml`
 
-## 🎯 Roadmap
+## Roadmap
 
-- [x] **Core Architecture** - Auth, extraction, database
-- [x] **Privacy Protection** - Email hashing, local storage
-- [x] **Batch Processing** - Handle large inboxes efficiently
-- [x] **Comprehensive Testing** - 90%+ test coverage
-- [ ] **AI Integration** - Anthropic Claude for recommendations
-- [ ] **Web Interface** - Review and approve actions
-- [ ] **Action Engine** - Execute cleanup operations
-- [ ] **Advanced Analytics** - ML-based email categorization
+- [x] Core architecture (auth, extraction, DB)
+- [x] Privacy protection (hashing, local‑only storage)
+- [x] Batch processing and sync
+- [x] Comprehensive tests with coverage gate
+- [ ] Web interface enhancements
+- [ ] AI‑assisted cleanup recommendations
 
-## 🤝 Contributing
+## Contributing
 
-This project follows Test-Driven Development (TDD):
+We aim for a small, testable surface area with clear interfaces.
 
-1. Write failing tests first
-2. Implement minimal code to pass tests
-3. Refactor for code quality
-4. Repeat
+General guidance:
+- Prefer small, focused functions with type hints
+- Keep modules inside `inbox_cleaner/`
+- Write or update tests alongside changes; keep CI green (lint, type, tests)
 
-All modules have comprehensive test coverage. See `tests/` directory for examples.
+Run locally:
+```bash
+black . && flake8 inbox_cleaner tests && mypy inbox_cleaner
+pytest --cov=inbox_cleaner
+```
 
 ## 📄 License
 
