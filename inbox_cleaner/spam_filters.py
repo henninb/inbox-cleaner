@@ -256,29 +256,29 @@ class SpamFilterManager:
             # Convert criteria dict to a hashable format for comparison
             criteria_str = str(sorted(criteria.items()))
             existing_criteria.add(criteria_str)
-        
+
         # Filter out duplicates from new filters
         non_duplicates = []
         for new_filter in new_filters:
             criteria = new_filter.get('criteria', {})
             criteria_str = str(sorted(criteria.items()))
-            
+
             if criteria_str not in existing_criteria:
                 non_duplicates.append(new_filter)
-        
+
         return non_duplicates
 
     def identify_duplicate_filters(self, filters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Identify duplicate filters in a list and return groups of duplicates."""
         # Group filters by their criteria
         criteria_groups = defaultdict(list)
-        
+
         for filter_item in filters:
             criteria = filter_item.get('criteria', {})
             # Convert criteria dict to a hashable format for grouping
             criteria_str = str(sorted(criteria.items()))
             criteria_groups[criteria_str].append(filter_item)
-        
+
         # Find groups with more than one filter (duplicates)
         duplicates = []
         for criteria_str, filter_list in criteria_groups.items():
@@ -286,13 +286,13 @@ class SpamFilterManager:
                 # Convert criteria string back to dict for display
                 criteria_items = eval(criteria_str)  # Safe here since we created it
                 criteria_dict = dict(criteria_items)
-                
+
                 duplicates.append({
                     'criteria': criteria_dict,
                     'filters': filter_list,
                     'count': len(filter_list)
                 })
-        
+
         return duplicates
 
     def export_filters_to_xml(self, filters: List[Dict[str, Any]]) -> str:
@@ -301,7 +301,7 @@ class SpamFilterManager:
             '<?xml version="1.0" encoding="UTF-8"?>',
             '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:apps="http://schemas.google.com/apps/2006">'
         ]
-        
+
         for filter_item in filters:
             xml_lines.append('  <entry>')
             xml_lines.append('    <category term="filter"></category>')
@@ -309,7 +309,7 @@ class SpamFilterManager:
             xml_lines.append('    <content></content>')
             xml_lines.append('    <apps:property name="hasTheWord" value=""/>')
             xml_lines.append('    <apps:property name="doesNotHaveTheWord" value=""/>')
-            
+
             # Add criteria properties
             criteria = filter_item.get('criteria', {})
             if 'from' in criteria:
@@ -320,7 +320,7 @@ class SpamFilterManager:
                 xml_lines.append(f'    <apps:property name="subject" value="{criteria["subject"]}"/>')
             if 'query' in criteria:
                 xml_lines.append(f'    <apps:property name="hasTheWord" value="{criteria["query"]}"/>')
-            
+
             # Add action properties
             action = filter_item.get('action', {})
             if 'addLabelIds' in action:
@@ -331,30 +331,30 @@ class SpamFilterManager:
                         xml_lines.append('    <apps:property name="shouldSpam" value="true"/>')
                     else:
                         xml_lines.append(f'    <apps:property name="label" value="{label}"/>')
-            
+
             if 'removeLabelIds' in action:
                 for label in action['removeLabelIds']:
                     if label == 'INBOX':
                         xml_lines.append('    <apps:property name="shouldArchive" value="true"/>')
                     elif label == 'UNREAD':
                         xml_lines.append('    <apps:property name="shouldMarkAsRead" value="true"/>')
-            
+
             # Default properties for spam filters
             if 'TRASH' in action.get('addLabelIds', []):
                 xml_lines.append('    <apps:property name="shouldNeverSpam" value="true"/>')
-            
+
             xml_lines.append('  </entry>')
-        
+
         xml_lines.append('</feed>')
         return '\n'.join(xml_lines)
 
     def optimize_filters(self, filters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Identify filter optimization opportunities."""
         optimizations = []
-        
+
         # Group filters by domain for consolidation opportunities
         domain_groups = defaultdict(list)
-        
+
         for filter_item in filters:
             criteria = filter_item.get('criteria', {})
             if 'from' in criteria:
@@ -365,7 +365,7 @@ class SpamFilterManager:
                     # Only consider if not already a wildcard pattern
                     if not from_value.startswith('*@'):
                         domain_groups[domain].append(filter_item)
-        
+
         # Find domains with multiple individual email filters that could be consolidated
         for domain, domain_filters in domain_groups.items():
             if len(domain_filters) >= 3:  # Only optimize if 3+ filters for same domain
@@ -383,7 +383,7 @@ class SpamFilterManager:
                         },
                         'description': f'Consolidate {len(domain_filters)} filters for {domain} into single wildcard filter'
                     })
-        
+
         return optimizations
 
     def merge_similar_filters(self, service, filters_to_merge: List[Dict[str, Any]], new_filter: Dict[str, Any]) -> Dict[str, Any]:
@@ -395,7 +395,7 @@ class SpamFilterManager:
             'failed_deletions': 0,
             'error': None
         }
-        
+
         try:
             # First, create the new consolidated filter
             response = service.users().settings().filters().create(
@@ -405,14 +405,14 @@ class SpamFilterManager:
                     'action': new_filter['action']
                 }
             ).execute()
-            
+
             result['new_filter_id'] = response.get('id')
             result['success'] = True
-            
+
             # Now delete the old filters
             deleted_count = 0
             failed_deletions = 0
-            
+
             for old_filter in filters_to_merge:
                 filter_id = old_filter.get('id')
                 try:
@@ -424,15 +424,15 @@ class SpamFilterManager:
                 except Exception as e:
                     failed_deletions += 1
                     # Continue trying to delete other filters
-            
+
             result['merged_count'] = deleted_count
             result['failed_deletions'] = failed_deletions
-            
+
         except Exception as e:
             result['success'] = False
             result['error'] = str(e)
             result['merged_count'] = 0
-        
+
         return result
 
     def apply_filter_optimizations(self, service, optimizations: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -444,18 +444,18 @@ class SpamFilterManager:
             'results': [],
             'errors': []
         }
-        
+
         if not optimizations:
             return result
-        
+
         for optimization in optimizations:
             if optimization['type'] == 'consolidate_domain':
                 filters_to_merge = optimization['filters_to_remove']
                 new_filter = optimization['new_filter']
-                
+
                 merge_result = self.merge_similar_filters(service, filters_to_merge, new_filter)
                 result['results'].append(merge_result)
-                
+
                 if merge_result['success']:
                     result['optimizations_applied'] += 1
                     result['total_merged'] += merge_result['merged_count']
@@ -464,8 +464,8 @@ class SpamFilterManager:
                         'optimization': optimization['description'],
                         'error': merge_result.get('error', 'Unknown error')
                     })
-        
+
         # Overall success if at least some optimizations worked
         result['success'] = result['optimizations_applied'] > 0 or len(optimizations) == 0
-        
+
         return result

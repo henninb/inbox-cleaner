@@ -469,14 +469,14 @@ def list_filters():
         from .spam_filters import SpamFilterManager
         spam_filter_manager = SpamFilterManager(db_manager)
         duplicates = spam_filter_manager.identify_duplicate_filters(filters)
-        
+
         if duplicates:
             click.echo("⚠️  DUPLICATE FILTERS FOUND:")
             click.echo()
             for duplicate_group in duplicates:
                 criteria = duplicate_group['criteria']
                 duplicate_filters = duplicate_group['filters']
-                
+
                 # Show the criteria that's duplicated
                 criteria_desc = []
                 if 'from' in criteria:
@@ -487,11 +487,11 @@ def list_filters():
                     criteria_desc.append(f"Subject: {criteria['subject']}")
                 if 'query' in criteria:
                     criteria_desc.append(f"Query: {criteria['query']}")
-                
+
                 criteria_text = ", ".join(criteria_desc) if criteria_desc else str(criteria)
                 click.echo(f"   🔍 Duplicate criteria: {criteria_text}")
                 click.echo(f"   📄 Found in {len(duplicate_filters)} filters:")
-                
+
                 for dup_filter in duplicate_filters:
                     filter_id = dup_filter.get('id', 'unknown')[:15]
                     click.echo(f"      • Filter ID: {filter_id}...")
@@ -956,7 +956,7 @@ def create_spam_filters(analyze, create_filters, update_config, dry_run):
 
             # Use proper duplicate detection
             non_duplicate_filters = spam_filter_manager.filter_out_duplicates(gmail_filters, existing_filters)
-            
+
             duplicates_skipped = len(gmail_filters) - len(non_duplicate_filters)
             if duplicates_skipped > 0:
                 click.echo(f"⏭️  Skipped {duplicates_skipped} duplicate filters")
@@ -1162,7 +1162,7 @@ def retention(analyze, cleanup, config_path_override, override, dry_run, show_re
 @click.option('--optimize', is_flag=True, help='Include filter optimization (merge similar domain filters)')
 def cleanup_filters(dry_run, execute, optimize):
     """Remove duplicates and optimize existing Gmail filters."""
-    
+
     if not dry_run and not execute:
         dry_run = True  # Default behavior
     elif execute:
@@ -1206,7 +1206,7 @@ def cleanup_filters(dry_run, execute, optimize):
 
         # Get existing filters
         filters = unsubscribe_engine.list_existing_filters()
-        
+
         if not filters:
             click.echo("✅ No filters found to clean up")
             return
@@ -1214,13 +1214,13 @@ def cleanup_filters(dry_run, execute, optimize):
         # Initialize spam filter manager for analysis
         from .spam_filters import SpamFilterManager
         spam_filter_manager = SpamFilterManager(db_manager)
-        
+
         # Find duplicates
         duplicates = spam_filter_manager.identify_duplicate_filters(filters)
-        
+
         # Find optimization opportunities
         optimizations = spam_filter_manager.optimize_filters(filters)
-        
+
         # Report findings
         if duplicates:
             click.echo(f"🔍 Found {len(duplicates)} duplicate filter groups:")
@@ -1228,7 +1228,7 @@ def cleanup_filters(dry_run, execute, optimize):
             for duplicate_group in duplicates:
                 criteria = duplicate_group['criteria']
                 duplicate_filters = duplicate_group['filters']
-                
+
                 # Show criteria
                 criteria_desc = []
                 if 'from' in criteria:
@@ -1237,19 +1237,19 @@ def cleanup_filters(dry_run, execute, optimize):
                     criteria_desc.append(f"To: {criteria['to']}")
                 if 'subject' in criteria:
                     criteria_desc.append(f"Subject: {criteria['subject']}")
-                
+
                 criteria_text = ", ".join(criteria_desc) if criteria_desc else str(criteria)
                 click.echo(f"  • {criteria_text} ({len(duplicate_filters)} filters)")
                 duplicate_count += len(duplicate_filters) - 1  # Keep one, remove others
         else:
             duplicate_count = 0
-            
+
         if optimizations:
             click.echo(f"🎯 Found {len(optimizations)} optimization opportunities:")
             for opt in optimizations:
                 if opt['type'] == 'consolidate_domain':
                     click.echo(f"  • {opt['description']}")
-        
+
         # Summary
         click.echo(f"\n📊 Summary:")
         if dry_run:
@@ -1263,7 +1263,7 @@ def cleanup_filters(dry_run, execute, optimize):
         else:
             # Execute cleanup
             removed_count = 0
-            
+
             # Remove duplicates (keep first filter in each group)
             for duplicate_group in duplicates:
                 filters_to_remove = duplicate_group['filters'][1:]  # Keep first, remove rest
@@ -1273,18 +1273,18 @@ def cleanup_filters(dry_run, execute, optimize):
                         removed_count += 1
                     else:
                         click.echo(f"⚠️ Failed to remove filter {filter_id}")
-            
+
             click.echo(f"  Removed {removed_count} duplicate filters")
-            
+
             # Apply optimizations if requested
             if optimize and optimizations:
                 click.echo(f"🔄 Applying {len(optimizations)} filter optimizations...")
                 optimization_result = spam_filter_manager.apply_filter_optimizations(service, optimizations)
-                
+
                 if optimization_result['success']:
                     click.echo(f"  Applied {optimization_result['optimizations_applied']} filter optimizations")
                     click.echo(f"  Merged {optimization_result['total_merged']} filters into 1 wildcard filter")
-                    
+
                     if optimization_result['errors']:
                         click.echo(f"  ⚠️ {len(optimization_result['errors'])} optimizations failed")
                         for error in optimization_result['errors']:
@@ -1301,11 +1301,11 @@ def cleanup_filters(dry_run, execute, optimize):
         click.echo(f"❌ Error: {e}")
 
 
-@main.command('export-filters') 
+@main.command('export-filters')
 @click.option('--filename', default=None, help='Output filename (default: gmail_filters_TIMESTAMP.xml)')
 def export_filters(filename):
     """Export Gmail filters to XML format for backup/restore."""
-    
+
     try:
         # Load configuration
         config_path = Path("config.yaml")
@@ -1337,7 +1337,7 @@ def export_filters(filename):
 
         # Get existing filters
         filters = unsubscribe_engine.list_existing_filters()
-        
+
         click.echo(f"📥 Found {len(filters)} filters to export")
 
         # Generate filename if not provided
@@ -1350,7 +1350,7 @@ def export_filters(filename):
         from .spam_filters import SpamFilterManager
         spam_filter_manager = SpamFilterManager(db_manager)
         xml_content = spam_filter_manager.export_filters_to_xml(filters)
-        
+
         # Write to file
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(xml_content)

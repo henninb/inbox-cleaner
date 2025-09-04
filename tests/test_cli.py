@@ -130,7 +130,7 @@ class TestCLIFilters:
                 'action': {'addLabelIds': ['TRASH']}
             },
             {
-                'id': 'filter2', 
+                'id': 'filter2',
                 'criteria': {'from': 'spam@example.com'},  # Duplicate criteria
                 'action': {'addLabelIds': ['TRASH']}
             },
@@ -160,7 +160,7 @@ class TestCLIFilters:
         assert 'Filter 2' in result.output
         assert 'Filter 3' in result.output
         assert 'Filter 4' in result.output
-        
+
         # Should identify and warn about duplicates
         assert 'DUPLICATE FILTERS FOUND' in result.output
         assert 'spam@example.com' in result.output  # The duplicate criteria
@@ -237,7 +237,7 @@ class TestCLIFilters:
                 'action': {'addLabelIds': ['TRASH']}
             },
             {
-                'id': 'filter2', 
+                'id': 'filter2',
                 'criteria': {'from': 'spam@example.com'},  # Duplicate
                 'action': {'addLabelIds': ['TRASH']}
             },
@@ -287,7 +287,7 @@ class TestCLIFilters:
                 'action': {'addLabelIds': ['TRASH']}
             },
             {
-                'id': 'filter2', 
+                'id': 'filter2',
                 'criteria': {'from': 'spam@example.com'},  # Duplicate
                 'action': {'addLabelIds': ['TRASH']}
             }
@@ -402,13 +402,13 @@ class TestCLIFilters:
                 'action': {'addLabelIds': ['TRASH']}
             },
             {
-                'id': 'filter2', 
+                'id': 'filter2',
                 'criteria': {'from': 'user2@spam.com'},
                 'action': {'addLabelIds': ['TRASH']}
             },
             {
                 'id': 'filter3',
-                'criteria': {'from': 'user3@spam.com'}, 
+                'criteria': {'from': 'user3@spam.com'},
                 'action': {'addLabelIds': ['TRASH']}
             }
         ]
@@ -452,7 +452,7 @@ class TestCLIFilters:
             },
             {
                 'id': 'filter2',
-                'criteria': {'from': 'user2@spam.com'}, 
+                'criteria': {'from': 'user2@spam.com'},
                 'action': {'addLabelIds': ['TRASH']}
             },
             {
@@ -502,7 +502,7 @@ class TestCLIFilters:
             },
             {
                 'id': 'filter2',
-                'criteria': {'from': 'user@domain2.com'}, 
+                'criteria': {'from': 'user@domain2.com'},
                 'action': {'addLabelIds': ['TRASH']}
             }
         ]
@@ -521,7 +521,7 @@ class TestCLIFilters:
     @patch('inbox_cleaner.cli.Path.exists')
     def test_cleanup_filters_command_no_config_file(self, mock_exists):
         """Test cleanup-filters when config file doesn't exist."""
-        # Arrange  
+        # Arrange
         mock_exists.return_value = False
 
         # Act
@@ -568,7 +568,7 @@ class TestCLIFilters:
     @patch('inbox_cleaner.cli.yaml.safe_load')
     @patch('inbox_cleaner.cli.GmailAuthenticator')
     def test_export_filters_command_auth_failure(self, mock_auth, mock_yaml, mock_open, mock_exists):
-        """Test export-filters command when authentication fails.""" 
+        """Test export-filters command when authentication fails."""
         # Arrange
         mock_exists.return_value = True
         mock_yaml.return_value = self.mock_config
