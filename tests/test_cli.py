@@ -454,6 +454,9 @@ class TestCLIMarkReadCommand:
                 'client_id': 'test-client-id',
                 'client_secret': 'test-secret',
                 'scopes': ['test-scope']
+            },
+            'database': {
+                'path': './test.db'
             }
         }
 
@@ -731,6 +734,9 @@ class TestCLICreateSpamFiltersCommand:
                 'client_id': 'test-client-id',
                 'client_secret': 'test-secret',
                 'scopes': ['test-scope']
+            },
+            'database': {
+                'path': './test.db'
             }
         }
 
@@ -739,7 +745,8 @@ class TestCLICreateSpamFiltersCommand:
     @patch('inbox_cleaner.cli.yaml.safe_load')
     @patch('inbox_cleaner.cli.GmailAuthenticator')
     @patch('inbox_cleaner.cli.build')
-    def test_create_spam_filters_dry_run(self, mock_build, mock_auth, mock_yaml, mock_open, mock_exists):
+    @patch('inbox_cleaner.cli.SpamFilterManager')
+    def test_create_spam_filters_dry_run(self, mock_spam_manager, mock_build, mock_auth, mock_yaml, mock_open, mock_exists):
         """Test create-spam-filters command in dry-run mode."""
         # Arrange
         mock_exists.return_value = True
@@ -750,18 +757,26 @@ class TestCLICreateSpamFiltersCommand:
         mock_service = Mock()
         mock_build.return_value = mock_service
 
+        # Configure SpamFilterManager to provide sample output
+        manager_instance = Mock()
+        manager_instance.identify_spam_domains.return_value = ['eleganceaffairs.com']
+        manager_instance.create_gmail_filters.return_value = [
+            {'criteria': {'from': 'eleganceaffairs.com'}, 'action': {'addLabelIds': ['TRASH']}}
+        ]
+        mock_spam_manager.return_value = manager_instance
+
         # Mock existing filters response
         mock_service.users().settings().filters().list().execute.return_value = {
             'filter': []  # No existing filters
         }
 
         # Act
-        result = self.runner.invoke(main, ['create-spam-filters', '--dry-run'])
+        result = self.runner.invoke(main, ['create-spam-filters', '--create-filters', '--dry-run'])
 
         # Assert
         assert result.exit_code == 0
         assert 'DRY RUN' in result.output
-        assert 'eleganceaffairs.com' in result.output or 'Free Spins' in result.output
+        assert 'Auto-delete from: eleganceaffairs.com' in result.output
         mock_service.users().settings().filters().create.assert_not_called()
 
     @patch('inbox_cleaner.cli.Path.exists')
@@ -769,7 +784,8 @@ class TestCLICreateSpamFiltersCommand:
     @patch('inbox_cleaner.cli.yaml.safe_load')
     @patch('inbox_cleaner.cli.GmailAuthenticator')
     @patch('inbox_cleaner.cli.build')
-    def test_create_spam_filters_execute(self, mock_build, mock_auth, mock_yaml, mock_open, mock_exists):
+    @patch('inbox_cleaner.cli.SpamFilterManager')
+    def test_create_spam_filters_execute(self, mock_spam_manager, mock_build, mock_auth, mock_yaml, mock_open, mock_exists):
         """Test create-spam-filters command in execute mode."""
         # Arrange
         mock_exists.return_value = True
@@ -780,13 +796,20 @@ class TestCLICreateSpamFiltersCommand:
         mock_service = Mock()
         mock_build.return_value = mock_service
 
+        manager_instance = Mock()
+        manager_instance.identify_spam_domains.return_value = ['eleganceaffairs.com']
+        manager_instance.create_gmail_filters.return_value = [
+            {'criteria': {'from': 'eleganceaffairs.com'}, 'action': {'addLabelIds': ['TRASH']}}
+        ]
+        mock_spam_manager.return_value = manager_instance
+
         # Mock existing filters response
         mock_service.users().settings().filters().list().execute.return_value = {
             'filter': []  # No existing filters
         }
 
         # Act
-        result = self.runner.invoke(main, ['create-spam-filters', '--execute'])
+        result = self.runner.invoke(main, ['create-spam-filters', '--create-filters'])
 
         # Assert
         assert result.exit_code == 0
@@ -799,7 +822,8 @@ class TestCLICreateSpamFiltersCommand:
     @patch('inbox_cleaner.cli.yaml.safe_load')
     @patch('inbox_cleaner.cli.GmailAuthenticator')
     @patch('inbox_cleaner.cli.build')
-    def test_create_spam_filters_no_new_filters(self, mock_build, mock_auth, mock_yaml, mock_open, mock_exists):
+    @patch('inbox_cleaner.cli.SpamFilterManager')
+    def test_create_spam_filters_no_new_filters(self, mock_spam_manager, mock_build, mock_auth, mock_yaml, mock_open, mock_exists):
         """Test create-spam-filters when all filters already exist."""
         # Arrange
         mock_exists.return_value = True
@@ -810,42 +834,18 @@ class TestCLICreateSpamFiltersCommand:
         mock_service = Mock()
         mock_build.return_value = mock_service
 
-        # Mock response with many existing filters to match all desired ones
-        # Need to create comprehensive list to match the logic in CLI
-        existing_filters = []
-        # Add all spam domains from the CLI code
-        spam_domains = [
-            'eleganceaffairs.com', 'speedytype.com', 'mineralsbid.com', 'fp8888.com',
-            'pets-tiara.com', 'koidor.com', 'delmedicogroup.com', 'aksuhaliyikama.us.com'
-        ]
-        subject_keywords = [
-            'Free Spins', 'Your Email Has Been Chosen', 'YourVip-Pass',
-            'Important Update - MUST SEE', 'Congratulations', 'Millionaire',
-            'Million to win', 'WinnersList', 'Instant-Millionaire', 'BonusOnHold'
-        ]
-
-        for domain in spam_domains:
-            existing_filters.append({
-                'criteria': {'from': domain},
-                'action': {'addLabelIds': ['TRASH']}
-            })
-
-        for keyword in subject_keywords:
-            existing_filters.append({
-                'criteria': {'query': f'subject:"{keyword}"'},
-                'action': {'addLabelIds': ['TRASH']}
-            })
-
-        mock_service.users().settings().filters().list().execute.return_value = {
-            'filter': existing_filters
-        }
+        # Configure SpamFilterManager to yield no new filters
+        manager_instance = Mock()
+        manager_instance.identify_spam_domains.return_value = ['eleganceaffairs.com']
+        manager_instance.create_gmail_filters.return_value = []
+        mock_spam_manager.return_value = manager_instance
 
         # Act
-        result = self.runner.invoke(main, ['create-spam-filters'])
+        result = self.runner.invoke(main, ['create-spam-filters', '--create-filters'])
 
         # Assert
         assert result.exit_code == 0
-        assert 'No new spam filters to create' in result.output
+        assert 'No spam filters to create' in result.output
 
 
 class TestCLIApplyFiltersCommand:
@@ -1106,9 +1106,9 @@ class TestCLISyncCommand:
     @patch('inbox_cleaner.cli.yaml.safe_load')
     @patch('inbox_cleaner.cli.GmailAuthenticator')
     @patch('inbox_cleaner.cli.build')
-    @patch('inbox_cleaner.cli.GmailExtractor')
+    @patch('inbox_cleaner.cli.GmailSynchronizer')
     @patch('inbox_cleaner.cli.DatabaseManager')
-    def test_sync_initial(self, mock_db_class, mock_extractor_class, mock_build,
+    def test_sync_initial(self, mock_db_class, mock_sync_class, mock_build,
                          mock_auth, mock_yaml, mock_open, mock_exists):
         """Test sync command with initial option."""
         # Arrange
@@ -1120,10 +1120,9 @@ class TestCLISyncCommand:
         mock_service = Mock()
         mock_build.return_value = mock_service
 
-        mock_extractor = Mock()
-        mock_extractor_class.return_value = mock_extractor
-        mock_emails = [{'id': '1'}, {'id': '2'}]
-        mock_extractor.extract_all.return_value = mock_emails
+        mock_sync = Mock()
+        mock_sync_class.return_value = mock_sync
+        mock_sync.sync.return_value = {'added': 2, 'removed': 0}
 
         mock_db = Mock()
         mock_db_class.return_value.__enter__.return_value = mock_db
@@ -1135,18 +1134,18 @@ class TestCLISyncCommand:
         # Assert
         assert result.exit_code == 0
         assert 'Starting initial sync' in result.output
-        assert 'Extracted 2 emails' in result.output
+        assert 'Added: 2 new emails' in result.output
         assert 'Database now contains 2 emails' in result.output
-        mock_extractor.extract_all.assert_called_once()
+        mock_sync.sync.assert_called_once()
 
     @patch('inbox_cleaner.cli.Path.exists')
     @patch('inbox_cleaner.cli.open')
     @patch('inbox_cleaner.cli.yaml.safe_load')
     @patch('inbox_cleaner.cli.GmailAuthenticator')
     @patch('inbox_cleaner.cli.build')
-    @patch('inbox_cleaner.cli.GmailExtractor')
+    @patch('inbox_cleaner.cli.GmailSynchronizer')
     @patch('inbox_cleaner.cli.DatabaseManager')
-    def test_sync_with_limit(self, mock_db_class, mock_extractor_class, mock_build,
+    def test_sync_with_limit(self, mock_db_class, mock_sync_class, mock_build,
                             mock_auth, mock_yaml, mock_open, mock_exists):
         """Test sync command with limit parameter."""
         # Arrange
@@ -1158,10 +1157,9 @@ class TestCLISyncCommand:
         mock_service = Mock()
         mock_build.return_value = mock_service
 
-        mock_extractor = Mock()
-        mock_extractor_class.return_value = mock_extractor
-        mock_emails = [{'id': str(i)} for i in range(5)]
-        mock_extractor.extract_all.return_value = mock_emails
+        mock_sync = Mock()
+        mock_sync_class.return_value = mock_sync
+        mock_sync.sync.return_value = {'added': 5, 'removed': 0}
 
         mock_db = Mock()
         mock_db_class.return_value.__enter__.return_value = mock_db
@@ -1173,9 +1171,9 @@ class TestCLISyncCommand:
         # Assert
         assert result.exit_code == 0
         # The limit only shows in initial sync, not regular sync
-        assert 'Extracted 5 emails' in result.output
-        # Check that extract_all was called with max_results parameter
-        call_args = mock_extractor.extract_all.call_args
+        assert 'Added: 5 new emails' in result.output
+        # Check that sync was called with max_results parameter
+        call_args = mock_sync.sync.call_args
         assert call_args.kwargs.get('max_results') == 5
 
     @patch('inbox_cleaner.cli.Path.exists')
