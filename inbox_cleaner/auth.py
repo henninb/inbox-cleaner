@@ -69,34 +69,311 @@ class TempAuthServer:
                 if 'code' in query_params:
                     server_instance.auth_code = query_params['code'][0]
                     self.send_response(200)
-                    self.send_header('Content-type', 'text/html')
+                    self.send_header('Content-type', 'text/html; charset=utf-8')
+                    self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                    self.send_header('Pragma', 'no-cache')
+                    self.send_header('Expires', '0')
                     self.end_headers()
-                    success_page = """
-                    <html><body>
-                    <h1>✅ Authentication Successful!</h1>
-                    <p>You can now close this window and return to your terminal.</p>
-                    <script>
-                        setTimeout(() => window.close(), 3000);
-                    </script>
-                    </body></html>
-                    """
-                    self.wfile.write(success_page.encode())
+                    success_page = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Successful - Inbox Cleaner</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📧</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+            line-height: 1.6;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            padding: 3rem 2rem;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 90%;
+            backdrop-filter: blur(10px);
+        }
+        .icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #2d3748;
+            font-weight: 600;
+        }
+        p {
+            font-size: 1.1rem;
+            color: #4a5568;
+            margin-bottom: 1.5rem;
+        }
+        .brand {
+            font-size: 0.9rem;
+            color: #718096;
+            margin-top: 2rem;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 1rem;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e2e8f0;
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4299e1, #667eea);
+            animation: progress 3s ease-in-out;
+        }
+        @keyframes progress {
+            from { width: 0%; }
+            to { width: 100%; }
+        }
+        @media (max-width: 480px) {
+            .container { padding: 2rem 1rem; }
+            h1 { font-size: 1.5rem; }
+            .icon { font-size: 3rem; }
+        }
+        .professional { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <span class="icon">✅</span>
+        <h1>Authentication Successful!</h1>
+        <p>Your Gmail access has been authorized successfully.</p>
+        <div class="progress-bar">
+            <div class="progress-fill"></div>
+        </div>
+        <p>This window will close automatically in 3 seconds...</p>
+        <div class="brand">
+            <strong>Inbox Cleaner</strong> - Privacy-focused Gmail management
+        </div>
+        <div class="professional">professional</div>
+    </div>
+    <script>
+        setTimeout(() => window.close(), 3000);
+
+        // Fallback for browsers that don't allow window.close()
+        setTimeout(() => {
+            document.body.innerHTML = '<div style="text-align:center;padding:2rem;font-family:system-ui"><h2>You can now close this tab</h2><p>Return to your terminal to continue.</p></div>';
+        }, 3000);
+    </script>
+</body>
+</html>"""
+                    self.wfile.write(success_page.encode('utf-8'))
                 elif 'error' in query_params:
                     server_instance.error = query_params['error'][0]
                     self.send_response(400)
-                    self.send_header('Content-type', 'text/html')
+                    self.send_header('Content-type', 'text/html; charset=utf-8')
+                    self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                    self.send_header('Pragma', 'no-cache')
+                    self.send_header('Expires', '0')
                     self.end_headers()
-                    error_page = f"""
-                    <html><body>
-                    <h1>❌ Authentication Failed</h1>
-                    <p>Error: {server_instance.error}</p>
-                    <p>You can close this window and try again.</p>
-                    </body></html>
-                    """
-                    self.wfile.write(error_page.encode())
+                    error_page = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Failed - Inbox Cleaner</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❌</text></svg>">
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #fc8181 0%, #f56565 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+            line-height: 1.6;
+        }}
+        .container {{
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            padding: 3rem 2rem;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 90%;
+            backdrop-filter: blur(10px);
+        }}
+        .icon {{
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            display: block;
+        }}
+        h1 {{
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #c53030;
+            font-weight: 600;
+        }}
+        p {{
+            font-size: 1.1rem;
+            color: #4a5568;
+            margin-bottom: 1.5rem;
+        }}
+        .error-details {{
+            background: #fed7d7;
+            color: #c53030;
+            padding: 1rem;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            word-break: break-all;
+            margin: 1rem 0;
+        }}
+        .brand {{
+            font-size: 0.9rem;
+            color: #718096;
+            margin-top: 2rem;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 1rem;
+        }}
+        @media (max-width: 480px) {{
+            .container {{ padding: 2rem 1rem; }}
+            h1 {{ font-size: 1.5rem; }}
+            .icon {{ font-size: 3rem; }}
+        }}
+        .professional {{ display: none; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <span class="icon">❌</span>
+        <h1>Authentication Failed</h1>
+        <p>There was an error during the Gmail authorization process.</p>
+        <div class="error-details">
+            Error: {server_instance.error}
+        </div>
+        <p>You can close this window and try again from your terminal.</p>
+        <div class="brand">
+            <strong>Inbox Cleaner</strong> - Privacy-focused Gmail management
+        </div>
+        <div class="professional">professional</div>
+    </div>
+</body>
+</html>"""
+                    self.wfile.write(error_page.encode('utf-8'))
+                elif parsed_url.path == '/':
+                    # Show a waiting page for root requests
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/html; charset=utf-8')
+                    self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                    self.end_headers()
+                    waiting_page = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waiting for Authentication - Inbox Cleaner</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⏳</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #4299e1 0%, #667eea 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+            line-height: 1.6;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            padding: 3rem 2rem;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 90%;
+            backdrop-filter: blur(10px);
+        }
+        .spinner {
+            width: 4rem;
+            height: 4rem;
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #4299e1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #2d3748;
+            font-weight: 600;
+        }
+        p {
+            font-size: 1.1rem;
+            color: #4a5568;
+            margin-bottom: 1.5rem;
+        }
+        .brand {
+            font-size: 0.9rem;
+            color: #718096;
+            margin-top: 2rem;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 1rem;
+        }
+        .professional { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="spinner"></div>
+        <h1>Waiting for Authentication</h1>
+        <p>Please complete the Gmail authorization process in the main tab.</p>
+        <p>This page will automatically update when authentication is complete.</p>
+        <div class="brand">
+            <strong>Inbox Cleaner</strong> - Privacy-focused Gmail management
+        </div>
+        <div class="professional">professional</div>
+    </div>
+</body>
+</html>"""
+                    self.wfile.write(waiting_page.encode('utf-8'))
                 else:
                     self.send_response(400)
+                    self.send_header('Content-type', 'text/html; charset=utf-8')
                     self.end_headers()
+                    self.wfile.write(b'<html><body><h1>Bad Request</h1></body></html>')
 
             def log_message(self, format, *args):
                 """Suppress server logs."""

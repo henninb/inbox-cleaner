@@ -30,7 +30,7 @@ class FilterAnalytics:
             FOREIGN KEY (email_message_id) REFERENCES emails_metadata (message_id)
         )
         """
-        
+
         create_filter_performance_table = """
         CREATE TABLE IF NOT EXISTS filter_performance (
             filter_id TEXT PRIMARY KEY,
@@ -44,12 +44,12 @@ class FilterAnalytics:
         """
 
         create_usage_index = """
-        CREATE INDEX IF NOT EXISTS idx_filter_usage_filter_id 
+        CREATE INDEX IF NOT EXISTS idx_filter_usage_filter_id
         ON filter_usage(filter_id)
         """
 
         create_usage_date_index = """
-        CREATE INDEX IF NOT EXISTS idx_filter_usage_matched_at 
+        CREATE INDEX IF NOT EXISTS idx_filter_usage_matched_at
         ON filter_usage(matched_at)
         """
 
@@ -62,17 +62,17 @@ class FilterAnalytics:
         """Analyze the complexity of a single filter."""
         complexity_score = 0
         complexity_factors = []
-        
+
         criteria = filter_data.get('criteria', {})
         action = filter_data.get('action', {})
-        
+
         # Analyze criteria complexity
         criteria_count = len(criteria)
         complexity_score += criteria_count
-        
+
         if criteria_count > 1:
             complexity_factors.append('Multiple criteria')
-        
+
         # Check for regex patterns
         for field, value in criteria.items():
             if isinstance(value, str):
@@ -81,12 +81,12 @@ class FilterAnalytics:
                 if re.search(regex_chars, value):
                     complexity_score += 2
                     complexity_factors.append(f'Regex in {field}')
-                
+
                 # Check for complex query syntax
                 if field == 'query' and any(op in value.lower() for op in ['and', 'or', 'not', 'has:']):
                     complexity_score += 3
                     complexity_factors.append('Complex query syntax')
-        
+
         # Analyze action complexity
         if 'addLabelIds' in action:
             complexity_score += len(action['addLabelIds'])
@@ -95,7 +95,7 @@ class FilterAnalytics:
         if len(action) > 2:
             complexity_score += 1
             complexity_factors.append('Multiple actions')
-        
+
         # Determine complexity level
         if complexity_score <= 2:
             complexity_level = 'simple'
@@ -103,7 +103,7 @@ class FilterAnalytics:
             complexity_level = 'moderate'
         else:
             complexity_level = 'complex'
-        
+
         return {
             'filter_id': filter_data.get('id', 'unknown'),
             'complexity_score': complexity_score,
@@ -124,13 +124,13 @@ class FilterAnalytics:
     def identify_duplicate_filters(self, filters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Identify duplicate or near-duplicate filters."""
         criteria_groups = defaultdict(list)
-        
+
         for filter_data in filters:
             criteria = filter_data.get('criteria', {})
             # Create a normalized string representation of criteria
             criteria_key = self._normalize_criteria(criteria)
             criteria_groups[criteria_key].append(filter_data)
-        
+
         duplicates = []
         for criteria_key, group in criteria_groups.items():
             if len(group) > 1:
@@ -142,7 +142,7 @@ class FilterAnalytics:
                     'count': len(group),
                     'filter_ids': [f.get('id', 'unknown') for f in group]
                 })
-        
+
         return duplicates
 
     def _normalize_criteria(self, criteria: Dict[str, Any]) -> str:
@@ -166,10 +166,10 @@ class FilterAnalytics:
     def suggest_filter_optimizations(self, filters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Suggest optimizations for filter efficiency."""
         optimizations = []
-        
+
         # Group filters by domain for consolidation
         domain_groups = defaultdict(list)
-        
+
         for filter_data in filters:
             criteria = filter_data.get('criteria', {})
             if 'from' in criteria:
@@ -178,7 +178,7 @@ class FilterAnalytics:
                     # Extract domain from email
                     domain = from_value.split('@')[-1]
                     domain_groups[domain].append(filter_data)
-        
+
         # Find consolidation opportunities
         for domain, domain_filters in domain_groups.items():
             if len(domain_filters) >= 3:
@@ -196,7 +196,7 @@ class FilterAnalytics:
                         'description': f'Consolidate {len(domain_filters)} filters for domain {domain}',
                         'estimated_savings': len(domain_filters) - 1
                     })
-        
+
         # Look for overly complex filters that could be simplified
         for filter_data in filters:
             complexity = self.analyze_filter_complexity(filter_data)
@@ -208,7 +208,7 @@ class FilterAnalytics:
                     'description': f'Simplify overly complex filter (score: {complexity["complexity_score"]})',
                     'suggestions': self._suggest_simplifications(filter_data)
                 })
-        
+
         return optimizations
 
     def _actions_are_similar(self, action1: Dict[str, Any], action2: Dict[str, Any]) -> bool:
@@ -220,29 +220,29 @@ class FilterAnalytics:
         """Suggest simplifications for a complex filter."""
         suggestions = []
         criteria = filter_data.get('criteria', {})
-        
+
         if 'query' in criteria and len(criteria['query']) > 100:
             suggestions.append("Break down complex query into multiple simpler filters")
-        
+
         if len(criteria) > 3:
             suggestions.append("Split into multiple filters with fewer criteria each")
-        
+
         action = filter_data.get('action', {})
         if len(action.get('addLabelIds', [])) > 2:
             suggestions.append("Reduce number of labels being added")
-        
+
         return suggestions
 
-    def track_filter_usage(self, filter_id: str, email_message_id: str, 
+    def track_filter_usage(self, filter_id: str, email_message_id: str,
                           criteria_matched: str = None, action_applied: str = None):
         """Track that a filter was used on a specific email."""
         query = """
         INSERT INTO filter_usage (filter_id, email_message_id, criteria_matched, action_applied)
         VALUES (?, ?, ?, ?)
         """
-        
+
         self.db_manager.execute_query(
-            query, 
+            query,
             (filter_id, email_message_id, criteria_matched, action_applied)
         )
 
@@ -252,7 +252,7 @@ class FilterAnalytics:
         INSERT INTO filter_usage (filter_id, email_message_id, criteria_matched, action_applied)
         VALUES (?, ?, ?, ?)
         """
-        
+
         # Pad tuples to 4 elements if needed
         padded_data = []
         for item in usage_data:
@@ -262,21 +262,21 @@ class FilterAnalytics:
                 padded_data.append(item + (None,))
             else:
                 padded_data.append(item)
-        
+
         self.db_manager.executemany(query, padded_data)
 
     def get_filter_usage_stats(self, days: int = 30) -> List[Dict[str, Any]]:
         """Get usage statistics for all filters."""
         cutoff_date = datetime.now() - timedelta(days=days)
-        
+
         query = """
-        SELECT 
+        SELECT
             fp.filter_id,
             COALESCE(usage_stats.usage_count, 0) as usage_count,
             usage_stats.last_used
         FROM filter_performance fp
         LEFT JOIN (
-            SELECT 
+            SELECT
                 filter_id,
                 COUNT(*) as usage_count,
                 MAX(matched_at) as last_used
@@ -286,9 +286,9 @@ class FilterAnalytics:
         ) usage_stats ON fp.filter_id = usage_stats.filter_id
         ORDER BY usage_count DESC
         """
-        
+
         results = self.db_manager.fetch_all(query, (cutoff_date,))
-        
+
         stats = []
         for row in results:
             stats.append({
@@ -296,25 +296,25 @@ class FilterAnalytics:
                 'usage_count': row[1],
                 'last_used': row[2]
             })
-        
+
         return stats
 
     def identify_unused_filters(self, all_filters: List[Dict[str, Any]], days: int = 30) -> List[Dict[str, Any]]:
         """Identify filters that haven't been used recently."""
         usage_stats = self.get_filter_usage_stats(days)
         used_filter_ids = {stat['filter_id'] for stat in usage_stats if stat['usage_count'] > 0}
-        
+
         all_filter_ids = {f.get('id') for f in all_filters}
         unused_filter_ids = all_filter_ids - used_filter_ids
-        
+
         unused_filters = [f for f in all_filters if f.get('id') in unused_filter_ids]
-        
+
         return unused_filters
 
     def get_filter_effectiveness_metrics(self) -> List[Dict[str, Any]]:
         """Calculate effectiveness metrics for all filters."""
         query = """
-        SELECT 
+        SELECT
             filter_id,
             total_emails_processed,
             total_matches,
@@ -322,9 +322,9 @@ class FilterAnalytics:
         FROM filter_performance
         ORDER BY effectiveness_ratio DESC
         """
-        
+
         results = self.db_manager.fetch_all(query)
-        
+
         metrics = []
         for row in results:
             metrics.append({
@@ -333,23 +333,23 @@ class FilterAnalytics:
                 'matches': row[2],
                 'effectiveness_ratio': row[3]
             })
-        
+
         return metrics
 
-    def measure_filter_performance(self, filter_data: Dict[str, Any], 
+    def measure_filter_performance(self, filter_data: Dict[str, Any],
                                  sample_emails: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Measure filter performance against a sample of emails."""
         start_time = time.time()
         matches_found = 0
-        
+
         criteria = filter_data.get('criteria', {})
-        
+
         for email in sample_emails:
             if self._email_matches_criteria(email, criteria):
                 matches_found += 1
-        
+
         execution_time_ms = (time.time() - start_time) * 1000
-        
+
         return {
             'filter_id': filter_data.get('id', 'unknown'),
             'execution_time_ms': execution_time_ms,
@@ -376,7 +376,7 @@ class FilterAnalytics:
                 # Simplified query matching - would need more sophisticated parsing
                 if not self._matches_query(email, pattern):
                     return False
-        
+
         return True
 
     def _matches_pattern(self, text: str, pattern: str) -> bool:
@@ -397,7 +397,7 @@ class FilterAnalytics:
         # This is a very basic implementation
         # Real Gmail query parsing would be much more complex
         query_lower = query.lower()
-        
+
         if 'from:' in query_lower:
             # Extract from: pattern
             from_match = re.search(r'from:([^\s]+)', query_lower)
@@ -406,29 +406,29 @@ class FilterAnalytics:
                 sender = email.get('sender_email', '')
                 if not self._matches_pattern(sender, from_pattern):
                     return False
-        
+
         return True
 
     def generate_efficiency_report(self, filters: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Generate comprehensive efficiency report for all filters."""
         # Analyze complexity for all filters
         complexity_analysis = [self.analyze_filter_complexity(f) for f in filters]
-        
+
         # Get usage statistics
         usage_stats = self.get_filter_usage_stats()
-        
+
         # Identify optimizations
         optimizations = self.suggest_filter_optimizations(filters)
-        
+
         # Identify unused filters
         unused_filters = self.identify_unused_filters(filters)
-        
+
         # Generate summary statistics
         total_filters = len(filters)
         complex_filters = len([c for c in complexity_analysis if c['complexity_level'] == 'complex'])
         unused_count = len(unused_filters)
         optimization_count = len(optimizations)
-        
+
         return {
             'generated_at': datetime.now().isoformat(),
             'summary': {
