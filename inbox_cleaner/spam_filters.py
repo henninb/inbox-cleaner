@@ -294,3 +294,178 @@ class SpamFilterManager:
                 })
         
         return duplicates
+
+    def export_filters_to_xml(self, filters: List[Dict[str, Any]]) -> str:
+        """Export filters to Gmail XML format for backup/restore."""
+        xml_lines = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:apps="http://schemas.google.com/apps/2006">'
+        ]
+        
+        for filter_item in filters:
+            xml_lines.append('  <entry>')
+            xml_lines.append('    <category term="filter"></category>')
+            xml_lines.append('    <title>Mail Filter</title>')
+            xml_lines.append('    <content></content>')
+            xml_lines.append('    <apps:property name="hasTheWord" value=""/>')
+            xml_lines.append('    <apps:property name="doesNotHaveTheWord" value=""/>')
+            
+            # Add criteria properties
+            criteria = filter_item.get('criteria', {})
+            if 'from' in criteria:
+                xml_lines.append(f'    <apps:property name="from" value="{criteria["from"]}"/>')
+            if 'to' in criteria:
+                xml_lines.append(f'    <apps:property name="to" value="{criteria["to"]}"/>')
+            if 'subject' in criteria:
+                xml_lines.append(f'    <apps:property name="subject" value="{criteria["subject"]}"/>')
+            if 'query' in criteria:
+                xml_lines.append(f'    <apps:property name="hasTheWord" value="{criteria["query"]}"/>')
+            
+            # Add action properties
+            action = filter_item.get('action', {})
+            if 'addLabelIds' in action:
+                for label in action['addLabelIds']:
+                    if label == 'TRASH':
+                        xml_lines.append('    <apps:property name="shouldTrash" value="true"/>')
+                    elif label == 'SPAM':
+                        xml_lines.append('    <apps:property name="shouldSpam" value="true"/>')
+                    else:
+                        xml_lines.append(f'    <apps:property name="label" value="{label}"/>')
+            
+            if 'removeLabelIds' in action:
+                for label in action['removeLabelIds']:
+                    if label == 'INBOX':
+                        xml_lines.append('    <apps:property name="shouldArchive" value="true"/>')
+                    elif label == 'UNREAD':
+                        xml_lines.append('    <apps:property name="shouldMarkAsRead" value="true"/>')
+            
+            # Default properties for spam filters
+            if 'TRASH' in action.get('addLabelIds', []):
+                xml_lines.append('    <apps:property name="shouldNeverSpam" value="true"/>')
+            
+            xml_lines.append('  </entry>')
+        
+        xml_lines.append('</feed>')
+        return '\n'.join(xml_lines)
+
+    def optimize_filters(self, filters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Identify filter optimization opportunities."""
+        optimizations = []
+        
+        # Group filters by domain for consolidation opportunities
+        domain_groups = defaultdict(list)
+        
+        for filter_item in filters:
+            criteria = filter_item.get('criteria', {})
+            if 'from' in criteria:
+                from_value = criteria['from']
+                # Extract domain from email patterns like user@domain.com or *@domain.com
+                if '@' in from_value:
+                    domain = from_value.split('@')[-1]
+                    # Only consider if not already a wildcard pattern
+                    if not from_value.startswith('*@'):
+                        domain_groups[domain].append(filter_item)
+        
+        # Find domains with multiple individual email filters that could be consolidated
+        for domain, domain_filters in domain_groups.items():
+            if len(domain_filters) >= 3:  # Only optimize if 3+ filters for same domain
+                # Check if all filters have the same action
+                first_action = str(sorted(domain_filters[0].get('action', {}).items()))
+                if all(str(sorted(f.get('action', {}).items())) == first_action for f in domain_filters):
+                    # Create consolidation optimization
+                    optimizations.append({
+                        'type': 'consolidate_domain',
+                        'domain': domain,
+                        'filters_to_remove': domain_filters,
+                        'new_filter': {
+                            'criteria': {'from': f'*@{domain}'},
+                            'action': domain_filters[0]['action'].copy()
+                        },
+                        'description': f'Consolidate {len(domain_filters)} filters for {domain} into single wildcard filter'
+                    })
+        
+        return optimizations
+
+    def merge_similar_filters(self, service, filters_to_merge: List[Dict[str, Any]], new_filter: Dict[str, Any]) -> Dict[str, Any]:
+        """Merge multiple similar filters into a single wildcard filter."""
+        result = {
+            'success': False,
+            'merged_count': 0,
+            'new_filter_id': None,
+            'failed_deletions': 0,
+            'error': None
+        }
+        
+        try:
+            # First, create the new consolidated filter
+            response = service.users().settings().filters().create(
+                userId='me',
+                body={
+                    'criteria': new_filter['criteria'],
+                    'action': new_filter['action']
+                }
+            ).execute()
+            
+            result['new_filter_id'] = response.get('id')
+            result['success'] = True
+            
+            # Now delete the old filters
+            deleted_count = 0
+            failed_deletions = 0
+            
+            for old_filter in filters_to_merge:
+                filter_id = old_filter.get('id')
+                try:
+                    service.users().settings().filters().delete(
+                        userId='me',
+                        id=filter_id
+                    ).execute()
+                    deleted_count += 1
+                except Exception as e:
+                    failed_deletions += 1
+                    # Continue trying to delete other filters
+            
+            result['merged_count'] = deleted_count
+            result['failed_deletions'] = failed_deletions
+            
+        except Exception as e:
+            result['success'] = False
+            result['error'] = str(e)
+            result['merged_count'] = 0
+        
+        return result
+
+    def apply_filter_optimizations(self, service, optimizations: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Apply multiple filter optimizations by merging similar filters."""
+        result = {
+            'success': True,
+            'optimizations_applied': 0,
+            'total_merged': 0,
+            'results': [],
+            'errors': []
+        }
+        
+        if not optimizations:
+            return result
+        
+        for optimization in optimizations:
+            if optimization['type'] == 'consolidate_domain':
+                filters_to_merge = optimization['filters_to_remove']
+                new_filter = optimization['new_filter']
+                
+                merge_result = self.merge_similar_filters(service, filters_to_merge, new_filter)
+                result['results'].append(merge_result)
+                
+                if merge_result['success']:
+                    result['optimizations_applied'] += 1
+                    result['total_merged'] += merge_result['merged_count']
+                else:
+                    result['errors'].append({
+                        'optimization': optimization['description'],
+                        'error': merge_result.get('error', 'Unknown error')
+                    })
+        
+        # Overall success if at least some optimizations worked
+        result['success'] = result['optimizations_applied'] > 0 or len(optimizations) == 0
+        
+        return result

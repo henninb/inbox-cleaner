@@ -211,6 +211,313 @@ class TestCLIFilters:
         assert '✅ No duplicate filters found' in result.output
         assert 'DUPLICATE FILTERS FOUND' not in result.output
 
+    @patch('inbox_cleaner.cli.Path.exists')
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.GmailAuthenticator')
+    @patch('inbox_cleaner.cli.build')
+    @patch('inbox_cleaner.cli.UnsubscribeEngine')
+    def test_cleanup_filters_command_dry_run(self, mock_engine, mock_build, mock_auth,
+                                           mock_yaml, mock_open, mock_exists):
+        """Test cleanup-filters command in dry run mode."""
+        # Arrange
+        mock_exists.return_value = True
+        mock_yaml.return_value = self.mock_config
+        mock_credentials = Mock()
+        mock_auth.return_value.get_valid_credentials.return_value = mock_credentials
+
+        mock_service = Mock()
+        mock_build.return_value = mock_service
+
+        # Mock filters with duplicates and optimization opportunities
+        mock_filters = [
+            {
+                'id': 'filter1',
+                'criteria': {'from': 'spam@example.com'},
+                'action': {'addLabelIds': ['TRASH']}
+            },
+            {
+                'id': 'filter2', 
+                'criteria': {'from': 'spam@example.com'},  # Duplicate
+                'action': {'addLabelIds': ['TRASH']}
+            },
+            {
+                'id': 'filter3',
+                'criteria': {'from': 'test@example.com'},
+                'action': {'addLabelIds': ['TRASH']}
+            }
+        ]
+
+        mock_engine_instance = Mock()
+        mock_engine_instance.list_existing_filters.return_value = mock_filters
+        mock_engine.return_value = mock_engine_instance
+
+        # Act
+        result = self.runner.invoke(main, ['cleanup-filters', '--dry-run'])
+
+        # Assert
+        assert result.exit_code == 0
+        assert 'DRY RUN MODE' in result.output
+        assert 'Found 1 duplicate filter groups' in result.output
+        assert 'Would remove 1 duplicate filters' in result.output
+        assert 'Would optimize 1 filter groups' in result.output
+
+    @patch('inbox_cleaner.cli.Path.exists')
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.GmailAuthenticator')
+    @patch('inbox_cleaner.cli.build')
+    @patch('inbox_cleaner.cli.UnsubscribeEngine')
+    def test_cleanup_filters_command_execute(self, mock_engine, mock_build, mock_auth,
+                                           mock_yaml, mock_open, mock_exists):
+        """Test cleanup-filters command in execute mode."""
+        # Arrange
+        mock_exists.return_value = True
+        mock_yaml.return_value = self.mock_config
+        mock_credentials = Mock()
+        mock_auth.return_value.get_valid_credentials.return_value = mock_credentials
+
+        mock_service = Mock()
+        mock_build.return_value = mock_service
+
+        mock_filters = [
+            {
+                'id': 'filter1',
+                'criteria': {'from': 'spam@example.com'},
+                'action': {'addLabelIds': ['TRASH']}
+            },
+            {
+                'id': 'filter2', 
+                'criteria': {'from': 'spam@example.com'},  # Duplicate
+                'action': {'addLabelIds': ['TRASH']}
+            }
+        ]
+
+        mock_engine_instance = Mock()
+        mock_engine_instance.list_existing_filters.return_value = mock_filters
+        mock_engine_instance.delete_filter.return_value = True
+        mock_engine.return_value = mock_engine_instance
+
+        # Act
+        result = self.runner.invoke(main, ['cleanup-filters', '--execute'])
+
+        # Assert
+        assert result.exit_code == 0
+        assert 'EXECUTE MODE' in result.output
+        assert 'Removed 1 duplicate filters' in result.output
+        mock_engine_instance.delete_filter.assert_called_once_with('filter2')
+
+    @patch('inbox_cleaner.cli.Path.exists')
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.GmailAuthenticator')
+    @patch('inbox_cleaner.cli.build')
+    @patch('inbox_cleaner.cli.UnsubscribeEngine')
+    def test_export_filters_command(self, mock_engine, mock_build, mock_auth,
+                                  mock_yaml, mock_open, mock_exists):
+        """Test export-filters command creates XML file."""
+        # Arrange
+        mock_exists.return_value = True
+        mock_yaml.return_value = self.mock_config
+        mock_credentials = Mock()
+        mock_auth.return_value.get_valid_credentials.return_value = mock_credentials
+
+        mock_service = Mock()
+        mock_build.return_value = mock_service
+
+        mock_filters = [
+            {
+                'id': 'filter1',
+                'criteria': {'from': 'test@example.com'},
+                'action': {'addLabelIds': ['TRASH']}
+            }
+        ]
+
+        mock_engine_instance = Mock()
+        mock_engine_instance.list_existing_filters.return_value = mock_filters
+        mock_engine.return_value = mock_engine_instance
+
+        # Act
+        result = self.runner.invoke(main, ['export-filters'])
+
+        # Assert
+        assert result.exit_code == 0
+        assert 'Exported 1 filters to' in result.output
+        assert 'gmail_filters_' in result.output
+        assert '.xml' in result.output
+
+    @patch('inbox_cleaner.cli.Path.exists')
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.GmailAuthenticator')
+    @patch('inbox_cleaner.cli.build')
+    @patch('inbox_cleaner.cli.UnsubscribeEngine')
+    def test_export_filters_command_custom_filename(self, mock_engine, mock_build, mock_auth,
+                                                   mock_yaml, mock_open, mock_exists):
+        """Test export-filters command with custom filename."""
+        # Arrange
+        mock_exists.return_value = True
+        mock_yaml.return_value = self.mock_config
+        mock_credentials = Mock()
+        mock_auth.return_value.get_valid_credentials.return_value = mock_credentials
+
+        mock_service = Mock()
+        mock_build.return_value = mock_service
+
+        mock_filters = []
+        mock_engine_instance = Mock()
+        mock_engine_instance.list_existing_filters.return_value = mock_filters
+        mock_engine.return_value = mock_engine_instance
+
+        # Act
+        result = self.runner.invoke(main, ['export-filters', '--filename', 'my_filters.xml'])
+
+        # Assert
+        assert result.exit_code == 0
+        assert 'Exported 0 filters to my_filters.xml' in result.output
+
+    @patch('inbox_cleaner.cli.Path.exists')
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.GmailAuthenticator')
+    @patch('inbox_cleaner.cli.build')
+    @patch('inbox_cleaner.cli.UnsubscribeEngine')
+    def test_cleanup_filters_command_with_optimize(self, mock_engine, mock_build, mock_auth,
+                                                 mock_yaml, mock_open, mock_exists):
+        """Test cleanup-filters command with --optimize flag."""
+        # Arrange
+        mock_exists.return_value = True
+        mock_yaml.return_value = self.mock_config
+        mock_credentials = Mock()
+        mock_auth.return_value.get_valid_credentials.return_value = mock_credentials
+
+        mock_service = Mock()
+        mock_build.return_value = mock_service
+
+        # Mock filters that can be optimized (3 from same domain)
+        mock_filters = [
+            {
+                'id': 'filter1',
+                'criteria': {'from': 'user1@spam.com'},
+                'action': {'addLabelIds': ['TRASH']}
+            },
+            {
+                'id': 'filter2', 
+                'criteria': {'from': 'user2@spam.com'},
+                'action': {'addLabelIds': ['TRASH']}
+            },
+            {
+                'id': 'filter3',
+                'criteria': {'from': 'user3@spam.com'}, 
+                'action': {'addLabelIds': ['TRASH']}
+            }
+        ]
+
+        mock_engine_instance = Mock()
+        mock_engine_instance.list_existing_filters.return_value = mock_filters
+        mock_engine.return_value = mock_engine_instance
+
+        # Act
+        result = self.runner.invoke(main, ['cleanup-filters', '--optimize', '--execute'])
+
+        # Assert
+        assert result.exit_code == 0
+        assert 'EXECUTE MODE' in result.output
+        assert 'Applied 1 filter optimizations' in result.output
+        assert 'Merged 3 filters into 1 wildcard filter' in result.output
+
+    @patch('inbox_cleaner.cli.Path.exists')
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.GmailAuthenticator')
+    @patch('inbox_cleaner.cli.build')
+    @patch('inbox_cleaner.cli.UnsubscribeEngine')
+    def test_cleanup_filters_command_optimize_dry_run(self, mock_engine, mock_build, mock_auth,
+                                                    mock_yaml, mock_open, mock_exists):
+        """Test cleanup-filters command with --optimize in dry run mode."""
+        # Arrange
+        mock_exists.return_value = True
+        mock_yaml.return_value = self.mock_config
+        mock_credentials = Mock()
+        mock_auth.return_value.get_valid_credentials.return_value = mock_credentials
+
+        mock_service = Mock()
+        mock_build.return_value = mock_service
+
+        mock_filters = [
+            {
+                'id': 'filter1',
+                'criteria': {'from': 'user1@spam.com'},
+                'action': {'addLabelIds': ['TRASH']}
+            },
+            {
+                'id': 'filter2',
+                'criteria': {'from': 'user2@spam.com'}, 
+                'action': {'addLabelIds': ['TRASH']}
+            },
+            {
+                'id': 'filter3',
+                'criteria': {'from': 'user3@spam.com'},
+                'action': {'addLabelIds': ['TRASH']}
+            }
+        ]
+
+        mock_engine_instance = Mock()
+        mock_engine_instance.list_existing_filters.return_value = mock_filters
+        mock_engine.return_value = mock_engine_instance
+
+        # Act
+        result = self.runner.invoke(main, ['cleanup-filters', '--optimize', '--dry-run'])
+
+        # Assert
+        assert result.exit_code == 0
+        assert 'DRY RUN MODE' in result.output
+        assert 'Would apply 1 filter optimizations' in result.output
+        assert 'Would merge 3 filters into wildcard filters' in result.output
+
+    @patch('inbox_cleaner.cli.Path.exists')
+    @patch('inbox_cleaner.cli.open')
+    @patch('inbox_cleaner.cli.yaml.safe_load')
+    @patch('inbox_cleaner.cli.GmailAuthenticator')
+    @patch('inbox_cleaner.cli.build')
+    @patch('inbox_cleaner.cli.UnsubscribeEngine')
+    def test_cleanup_filters_command_no_optimizations(self, mock_engine, mock_build, mock_auth,
+                                                    mock_yaml, mock_open, mock_exists):
+        """Test cleanup-filters command when no optimizations are possible."""
+        # Arrange
+        mock_exists.return_value = True
+        mock_yaml.return_value = self.mock_config
+        mock_credentials = Mock()
+        mock_auth.return_value.get_valid_credentials.return_value = mock_credentials
+
+        mock_service = Mock()
+        mock_build.return_value = mock_service
+
+        # Mock filters that cannot be optimized (all different domains)
+        mock_filters = [
+            {
+                'id': 'filter1',
+                'criteria': {'from': 'user@domain1.com'},
+                'action': {'addLabelIds': ['TRASH']}
+            },
+            {
+                'id': 'filter2',
+                'criteria': {'from': 'user@domain2.com'}, 
+                'action': {'addLabelIds': ['TRASH']}
+            }
+        ]
+
+        mock_engine_instance = Mock()
+        mock_engine_instance.list_existing_filters.return_value = mock_filters
+        mock_engine.return_value = mock_engine_instance
+
+        # Act
+        result = self.runner.invoke(main, ['cleanup-filters', '--optimize', '--execute'])
+
+        # Assert
+        assert result.exit_code == 0
+        assert 'No filter optimizations available' in result.output
+
 
 class TestCLIDeleteEmails:
     """Test CLI email deletion functionality."""
@@ -908,10 +1215,14 @@ class TestCLICreateSpamFiltersCommand:
         manager_instance.create_gmail_filters.return_value = [
             {'criteria': {'from': 'eleganceaffairs.com'}, 'action': {'addLabelIds': ['TRASH']}}
         ]
+        # Mock the new filter_out_duplicates method
+        manager_instance.filter_out_duplicates.return_value = [
+            {'criteria': {'from': 'eleganceaffairs.com'}, 'action': {'addLabelIds': ['TRASH']}}
+        ]
         mock_spam_manager.return_value = manager_instance
 
-        # Mock existing filters response
-        mock_service.users().settings().filters().list().execute.return_value = {
+        # Mock existing filters response (fix the call signature)
+        mock_service.users.return_value.settings.return_value.filters.return_value.list.return_value.execute.return_value = {
             'filter': []  # No existing filters
         }
 

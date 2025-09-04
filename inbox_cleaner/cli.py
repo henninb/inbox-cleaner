@@ -1156,6 +1156,210 @@ def retention(analyze, cleanup, config_path_override, override, dry_run, show_re
         click.echo(f"❌ Error: {e}")
 
 
+@main.command('cleanup-filters')
+@click.option('--dry-run', is_flag=True, help='Preview actions without making changes (default)')
+@click.option('--execute', is_flag=True, help='Actually perform cleanup operations')
+@click.option('--optimize', is_flag=True, help='Include filter optimization (merge similar domain filters)')
+def cleanup_filters(dry_run, execute, optimize):
+    """Remove duplicates and optimize existing Gmail filters."""
+    
+    if not dry_run and not execute:
+        dry_run = True  # Default behavior
+    elif execute:
+        dry_run = False
+
+    try:
+        # Load configuration
+        config_path = Path("config.yaml")
+        if not config_path.exists():
+            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
+            return
+
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        gmail_config = config['gmail']
+        db_path = config['database']['path']
+
+        # Initialize components
+        authenticator = GmailAuthenticator(gmail_config)
+
+        click.echo("🔐 Getting credentials...")
+        try:
+            credentials = authenticator.get_valid_credentials()
+        except AuthenticationError as e:
+            click.echo(f"❌ Authentication failed: {e}")
+            click.echo("Run 'auth --setup' first.")
+            return
+
+        # Build Gmail service
+        service = build('gmail', 'v1', credentials=credentials)
+        db_manager = DatabaseManager(db_path)
+        unsubscribe_engine = UnsubscribeEngine(service, db_manager)
+
+        if dry_run:
+            click.echo("💡 DRY RUN MODE - No changes will be made")
+        else:
+            click.echo("⚠️ EXECUTE MODE - Changes will be made to Gmail")
+
+        click.echo("🧹 Analyzing existing filters for cleanup opportunities...")
+
+        # Get existing filters
+        filters = unsubscribe_engine.list_existing_filters()
+        
+        if not filters:
+            click.echo("✅ No filters found to clean up")
+            return
+
+        # Initialize spam filter manager for analysis
+        from .spam_filters import SpamFilterManager
+        spam_filter_manager = SpamFilterManager(db_manager)
+        
+        # Find duplicates
+        duplicates = spam_filter_manager.identify_duplicate_filters(filters)
+        
+        # Find optimization opportunities
+        optimizations = spam_filter_manager.optimize_filters(filters)
+        
+        # Report findings
+        if duplicates:
+            click.echo(f"🔍 Found {len(duplicates)} duplicate filter groups:")
+            duplicate_count = 0
+            for duplicate_group in duplicates:
+                criteria = duplicate_group['criteria']
+                duplicate_filters = duplicate_group['filters']
+                
+                # Show criteria
+                criteria_desc = []
+                if 'from' in criteria:
+                    criteria_desc.append(f"From: {criteria['from']}")
+                if 'to' in criteria:
+                    criteria_desc.append(f"To: {criteria['to']}")
+                if 'subject' in criteria:
+                    criteria_desc.append(f"Subject: {criteria['subject']}")
+                
+                criteria_text = ", ".join(criteria_desc) if criteria_desc else str(criteria)
+                click.echo(f"  • {criteria_text} ({len(duplicate_filters)} filters)")
+                duplicate_count += len(duplicate_filters) - 1  # Keep one, remove others
+        else:
+            duplicate_count = 0
+            
+        if optimizations:
+            click.echo(f"🎯 Found {len(optimizations)} optimization opportunities:")
+            for opt in optimizations:
+                if opt['type'] == 'consolidate_domain':
+                    click.echo(f"  • {opt['description']}")
+        
+        # Summary
+        click.echo(f"\n📊 Summary:")
+        if dry_run:
+            click.echo(f"  Would remove {duplicate_count} duplicate filters")
+            if optimize:
+                total_to_merge = sum(len(opt['filters_to_remove']) for opt in optimizations)
+                click.echo(f"  Would apply {len(optimizations)} filter optimizations")
+                click.echo(f"  Would merge {total_to_merge} filters into wildcard filters")
+            else:
+                click.echo(f"  Would optimize {len(optimizations)} filter groups (use --optimize to apply)")
+        else:
+            # Execute cleanup
+            removed_count = 0
+            
+            # Remove duplicates (keep first filter in each group)
+            for duplicate_group in duplicates:
+                filters_to_remove = duplicate_group['filters'][1:]  # Keep first, remove rest
+                for filter_to_remove in filters_to_remove:
+                    filter_id = filter_to_remove.get('id')
+                    if unsubscribe_engine.delete_filter(filter_id):
+                        removed_count += 1
+                    else:
+                        click.echo(f"⚠️ Failed to remove filter {filter_id}")
+            
+            click.echo(f"  Removed {removed_count} duplicate filters")
+            
+            # Apply optimizations if requested
+            if optimize and optimizations:
+                click.echo(f"🔄 Applying {len(optimizations)} filter optimizations...")
+                optimization_result = spam_filter_manager.apply_filter_optimizations(service, optimizations)
+                
+                if optimization_result['success']:
+                    click.echo(f"  Applied {optimization_result['optimizations_applied']} filter optimizations")
+                    click.echo(f"  Merged {optimization_result['total_merged']} filters into 1 wildcard filter")
+                    
+                    if optimization_result['errors']:
+                        click.echo(f"  ⚠️ {len(optimization_result['errors'])} optimizations failed")
+                        for error in optimization_result['errors']:
+                            click.echo(f"    • {error['optimization']}: {error['error']}")
+                else:
+                    click.echo(f"  ❌ Failed to apply optimizations")
+            elif optimize:
+                click.echo(f"  No filter optimizations available")
+            else:
+                if optimizations:
+                    click.echo(f"  Found {len(optimizations)} optimization opportunities (use --optimize to apply)")
+
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
+
+
+@main.command('export-filters') 
+@click.option('--filename', default=None, help='Output filename (default: gmail_filters_TIMESTAMP.xml)')
+def export_filters(filename):
+    """Export Gmail filters to XML format for backup/restore."""
+    
+    try:
+        # Load configuration
+        config_path = Path("config.yaml")
+        if not config_path.exists():
+            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
+            return
+
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        gmail_config = config['gmail']
+        db_path = config['database']['path']
+
+        # Initialize components
+        authenticator = GmailAuthenticator(gmail_config)
+
+        click.echo("🔐 Getting credentials...")
+        try:
+            credentials = authenticator.get_valid_credentials()
+        except AuthenticationError as e:
+            click.echo(f"❌ Authentication failed: {e}")
+            click.echo("Run 'auth --setup' first.")
+            return
+
+        # Build Gmail service
+        service = build('gmail', 'v1', credentials=credentials)
+        db_manager = DatabaseManager(db_path)
+        unsubscribe_engine = UnsubscribeEngine(service, db_manager)
+
+        # Get existing filters
+        filters = unsubscribe_engine.list_existing_filters()
+        
+        click.echo(f"📥 Found {len(filters)} filters to export")
+
+        # Generate filename if not provided
+        if not filename:
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"gmail_filters_{timestamp}.xml"
+
+        # Export to XML
+        from .spam_filters import SpamFilterManager
+        spam_filter_manager = SpamFilterManager(db_manager)
+        xml_content = spam_filter_manager.export_filters_to_xml(filters)
+        
+        # Write to file
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(xml_content)
+
+        click.echo(f"✅ Exported {len(filters)} filters to {filename}")
+        click.echo(f"💡 You can import this file in Gmail Settings > Filters and Blocked Addresses > Import filters")
+
+    except Exception as e:
+        click.echo(f"❌ Error: {e}")
 
 
 if __name__ == "__main__":
