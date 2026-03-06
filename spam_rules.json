@@ -1,0 +1,1190 @@
+[
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0014-000000000001",
+    "type": "sender",
+    "pattern": "@.*onepay\\.com$",
+    "action": "delete",
+    "reason": "OnePay spam - all subdomains",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0013-000000000001",
+    "type": "sender",
+    "pattern": "admissions@wartburg\\.edu",
+    "action": "delete",
+    "reason": "Wartburg College admissions spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0012-000000000001",
+    "type": "sender",
+    "pattern": "@.*webuyanycar\\.com$",
+    "action": "delete",
+    "reason": "We Buy Any Car marketing - all subdomains",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0011-000000000001",
+    "type": "subject",
+    "pattern": "[åøæÅØÆ]",
+    "action": "delete",
+    "reason": "Subject contains Scandinavian characters (Norwegian/Danish/Swedish) - likely foreign account spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0011-000000000002",
+    "type": "subject",
+    "pattern": "[\\u0400-\\u04FF]",
+    "action": "delete",
+    "reason": "Subject contains Cyrillic characters - likely foreign spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0010-000000000001",
+    "type": "domain",
+    "domain": "email.snapchat.com",
+    "action": "delete",
+    "reason": "Snapchat marketing emails (verify.snapchat.com kept for security alerts)",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0010-000000000002",
+    "type": "domain",
+    "domain": "em.adcorthoglendale.com",
+    "action": "delete",
+    "reason": "ADC Orthodontics Glendale marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0010-000000000003",
+    "type": "sender",
+    "pattern": "mkevin@capvision\\.com",
+    "action": "delete",
+    "reason": "Capvision cold outreach spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0009-000000000001",
+    "type": "subject",
+    "pattern": "[A-Za-z]{3,}[\"'][A-Za-z]{3,}",
+    "action": "delete",
+    "reason": "Obfuscated subject - punctuation split inside words (e.g. CON\"FIRMATION, REC'EIP) - requires 3+ chars on both sides to avoid contractions",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0009-000000000002",
+    "type": "subject",
+    "pattern": "recei{2,}pt|c[o0]nfirm.{0,5}\\*|\\*.*recei",
+    "action": "delete",
+    "reason": "Obfuscated subject - misspelled receipt or asterisk near confirm/receipt",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0009-000000000003",
+    "type": "subject",
+    "pattern": "[\\U0001D400-\\U0001D7FF]",
+    "action": "delete",
+    "reason": "Obfuscated subject - Unicode mathematical bold/italic lookalike characters",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0009-000000000004",
+    "type": "subject",
+    "pattern": "(receipt|confirm|invoice|payment).{0,20}(mcs|md|\\bllc\\b|👇|\\*)",
+    "action": "delete",
+    "reason": "Obfuscated receipt/confirmation spam with suspicious suffixes or symbols",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0001-000000000001",
+    "type": "domain",
+    "domain": "dickssportinggoods.com",
+    "action": "delete",
+    "reason": "Dick's Sporting Goods - block all",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0001-000000000002",
+    "type": "sender",
+    "pattern": "@.*dickssportinggoods\\.com$",
+    "action": "delete",
+    "reason": "Dick's Sporting Goods - all subdomains",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0001-000000000003",
+    "type": "sender",
+    "pattern": "(store-news|deals|marketing|newsletter|recommendations|specials|promotions|gc-orders)@amazon\\.com$",
+    "action": "delete",
+    "reason": "Amazon promotional/marketing emails - keep order confirmations",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0001-000000000004",
+    "type": "subject",
+    "pattern": "(months? of (Spotify )?Premium|Spotify Premium for \\$|upgrade.*Premium|Get (best|Spotify)|free.*Premium trial)",
+    "action": "delete",
+    "reason": "Spotify Premium upsell marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0001-000000000005",
+    "type": "domain",
+    "domain": "trivago.com",
+    "action": "delete",
+    "reason": "Trivago - block all",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0001-000000000006",
+    "type": "domain",
+    "domain": "carnival.com",
+    "action": "delete",
+    "reason": "Carnival cruise - block all",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0001-000000000007",
+    "type": "domain",
+    "domain": "buxton.com",
+    "action": "delete",
+    "reason": "Buxton - block all",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0001-000000000008",
+    "type": "domain",
+    "domain": "lore.com",
+    "action": "delete",
+    "reason": "LORE newsletter - block all",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0002-000000000001",
+    "type": "domain",
+    "domain": "orderyoyo.com",
+    "action": "delete",
+    "reason": "Restaurant ordering app marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0002-000000000002",
+    "type": "domain",
+    "domain": "update.one.app",
+    "action": "delete",
+    "reason": "One finance app marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0002-000000000003",
+    "type": "domain",
+    "domain": "nextdoor.com",
+    "action": "delete",
+    "reason": "Nextdoor neighborhood app marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0002-000000000004",
+    "type": "domain",
+    "domain": "golfnowone.com",
+    "action": "delete",
+    "reason": "GolfNow marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0002-000000000005",
+    "type": "domain",
+    "domain": "fetch.com",
+    "action": "delete",
+    "reason": "Fetch Rewards app marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0002-000000000006",
+    "type": "domain",
+    "domain": "walmart.com",
+    "action": "delete",
+    "reason": "Walmart marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0002-000000000007",
+    "type": "domain",
+    "domain": "curaleaf.com",
+    "action": "delete",
+    "reason": "Curaleaf cannabis dispensary marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0002-000000000008",
+    "type": "domain",
+    "domain": "doxo.com",
+    "action": "delete",
+    "reason": "Doxo bill pay marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0002-000000000009",
+    "type": "domain",
+    "domain": "expedia.com",
+    "action": "delete",
+    "reason": "Expedia marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0002-000000000010",
+    "type": "domain",
+    "domain": "directv-mail.com",
+    "action": "delete",
+    "reason": "DirecTV marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0002-000000000011",
+    "type": "domain",
+    "domain": "burton.com",
+    "action": "delete",
+    "reason": "Burton snowboards marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0002-000000000012",
+    "type": "domain",
+    "domain": "partycity.com",
+    "action": "delete",
+    "reason": "Party City marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0002-000000000013",
+    "type": "domain",
+    "domain": "mavistire.com",
+    "action": "delete",
+    "reason": "Mavis Tire marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0002-000000000014",
+    "type": "domain",
+    "domain": "goldstar.com",
+    "action": "delete",
+    "reason": "Goldstar entertainment deals marketing",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0003-000000000001",
+    "type": "domain",
+    "domain": "reyrey.net",
+    "action": "delete",
+    "reason": "Reynolds & Reynolds auto dealer CRM spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0004-000000000001",
+    "type": "domain",
+    "domain": "valuedcareers.net",
+    "action": "delete",
+    "reason": "Job spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0004-000000000002",
+    "type": "domain",
+    "domain": "freshcareerfinder.com",
+    "action": "delete",
+    "reason": "Job spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0004-000000000003",
+    "type": "domain",
+    "domain": "greatomahajobs.com",
+    "action": "delete",
+    "reason": "Job spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0004-000000000004",
+    "type": "domain",
+    "domain": "greatrichmondjobs.com",
+    "action": "delete",
+    "reason": "Job spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0004-000000000005",
+    "type": "domain",
+    "domain": "jobbity.com",
+    "action": "delete",
+    "reason": "Job spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0004-000000000006",
+    "type": "domain",
+    "domain": "jobuliet.net",
+    "action": "delete",
+    "reason": "Job spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0005-000000000001",
+    "type": "domain",
+    "domain": "providecapitalaid.com",
+    "action": "delete",
+    "reason": "Loan/financial spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0005-000000000002",
+    "type": "domain",
+    "domain": "providecapitalassist.com",
+    "action": "delete",
+    "reason": "Loan/financial spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0005-000000000003",
+    "type": "domain",
+    "domain": "providecapitalvcgrp.com",
+    "action": "delete",
+    "reason": "Loan/financial spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0005-000000000004",
+    "type": "domain",
+    "domain": "provideequiploans.com",
+    "action": "delete",
+    "reason": "Loan/financial spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0005-000000000005",
+    "type": "domain",
+    "domain": "cachevalleyloan.com",
+    "action": "delete",
+    "reason": "Loan/financial spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0006-000000000001",
+    "type": "domain",
+    "domain": "bloomerang-mail.com",
+    "action": "delete",
+    "reason": "Nonprofit fundraising email platform",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0006-000000000002",
+    "type": "domain",
+    "domain": "clubexpress.com",
+    "action": "delete",
+    "reason": "Club/org newsletter platform",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0006-000000000003",
+    "type": "domain",
+    "domain": "copsarizona.ccsend.com",
+    "action": "delete",
+    "reason": "Citizens on Patrol AZ",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0006-000000000004",
+    "type": "domain",
+    "domain": "clermontlibrary.org",
+    "action": "delete",
+    "reason": "Library notifications",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0006-000000000005",
+    "type": "domain",
+    "domain": "jipijapa.net",
+    "action": "delete",
+    "reason": "Unknown sender - spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0007-000000000001",
+    "type": "sender",
+    "pattern": "@[^@]+\\.xyz$",
+    "action": "delete",
+    "reason": "All .xyz TLD senders - spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0007-000000000002",
+    "type": "domain",
+    "domain": "ivessi.net",
+    "action": "delete",
+    "reason": "Spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0007-000000000003",
+    "type": "domain",
+    "domain": "winklepickertwins.com",
+    "action": "delete",
+    "reason": "Spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0007-000000000004",
+    "type": "domain",
+    "domain": "pragatiairclassifier.com",
+    "action": "delete",
+    "reason": "Spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0007-000000000005",
+    "type": "domain",
+    "domain": "tarifcheck-pkv-forum.de",
+    "action": "delete",
+    "reason": "German insurance spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0007-000000000006",
+    "type": "domain",
+    "domain": "supabets.co.za",
+    "action": "delete",
+    "reason": "South African gambling spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0007-000000000007",
+    "type": "domain",
+    "domain": "lawyer.com",
+    "action": "delete",
+    "reason": "Lawyer referral spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0007-000000000008",
+    "type": "domain",
+    "domain": "therewardwizard.com",
+    "action": "delete",
+    "reason": "Rewards spam",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0007-000000000009",
+    "type": "domain",
+    "domain": "dollardns.org",
+    "action": "delete",
+    "reason": "Spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000001",
+    "type": "domain",
+    "domain": "119east101.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000002",
+    "type": "domain",
+    "domain": "54.dandantheplumberman.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000003",
+    "type": "domain",
+    "domain": "84.valledaostabenessere.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000004",
+    "type": "domain",
+    "domain": "a-z1.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000005",
+    "type": "domain",
+    "domain": "acneskindisorder.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000006",
+    "type": "domain",
+    "domain": "alfarahgroup.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000007",
+    "type": "domain",
+    "domain": "alitemple.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000008",
+    "type": "domain",
+    "domain": "antonellatubia.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000009",
+    "type": "domain",
+    "domain": "atooosh.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000010",
+    "type": "domain",
+    "domain": "battilamiera.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000011",
+    "type": "domain",
+    "domain": "blackpointfarm.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000012",
+    "type": "domain",
+    "domain": "bluesky-rx7.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000013",
+    "type": "domain",
+    "domain": "canucktions.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000014",
+    "type": "domain",
+    "domain": "charliecommunication.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000015",
+    "type": "domain",
+    "domain": "ciouyourfood.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000016",
+    "type": "domain",
+    "domain": "conductor-batons.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000017",
+    "type": "domain",
+    "domain": "cosmeron.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000018",
+    "type": "domain",
+    "domain": "deai-cafenavi.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000019",
+    "type": "domain",
+    "domain": "deannereeder.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000020",
+    "type": "domain",
+    "domain": "device-developer.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000021",
+    "type": "domain",
+    "domain": "duduzanette.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000022",
+    "type": "domain",
+    "domain": "etnieshoes.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000023",
+    "type": "domain",
+    "domain": "eyadat4u.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000024",
+    "type": "domain",
+    "domain": "flower-law.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000025",
+    "type": "domain",
+    "domain": "fromant-skjodt.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000026",
+    "type": "domain",
+    "domain": "fujijohnstown.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000027",
+    "type": "domain",
+    "domain": "gavinchi.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000028",
+    "type": "domain",
+    "domain": "goforthishouse.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000029",
+    "type": "domain",
+    "domain": "golfranchusa.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000030",
+    "type": "domain",
+    "domain": "happyfieldrecords.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000031",
+    "type": "domain",
+    "domain": "hairextensionorlando.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000032",
+    "type": "domain",
+    "domain": "hellosharing.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000033",
+    "type": "domain",
+    "domain": "horizonsupplychain.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000034",
+    "type": "domain",
+    "domain": "iinfants.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000035",
+    "type": "domain",
+    "domain": "janedstevenson.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000036",
+    "type": "domain",
+    "domain": "kampagne.nds.aok.de",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000037",
+    "type": "domain",
+    "domain": "kobikouture.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000038",
+    "type": "domain",
+    "domain": "konabags.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000039",
+    "type": "domain",
+    "domain": "konigmichael.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000040",
+    "type": "domain",
+    "domain": "laurabielinski.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000041",
+    "type": "domain",
+    "domain": "levelfordiabetes.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000042",
+    "type": "domain",
+    "domain": "lifeofsinclothing.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000043",
+    "type": "domain",
+    "domain": "lifetheorem.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000044",
+    "type": "domain",
+    "domain": "linlymatsumura.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000045",
+    "type": "domain",
+    "domain": "lokehoekit.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000046",
+    "type": "domain",
+    "domain": "marshathole.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000047",
+    "type": "domain",
+    "domain": "mattmehaffey.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000048",
+    "type": "domain",
+    "domain": "montorobotella.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000049",
+    "type": "domain",
+    "domain": "myrandf.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000050",
+    "type": "domain",
+    "domain": "nickgervaisphoto.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000051",
+    "type": "domain",
+    "domain": "oliviermoravik.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000052",
+    "type": "domain",
+    "domain": "online24shopping.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000053",
+    "type": "domain",
+    "domain": "possibleworldz.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000054",
+    "type": "domain",
+    "domain": "power3.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000055",
+    "type": "domain",
+    "domain": "propertyalhaurin.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000056",
+    "type": "domain",
+    "domain": "rashhomeimprovement.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000057",
+    "type": "domain",
+    "domain": "russiltamsen.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000058",
+    "type": "domain",
+    "domain": "saanichplumbing.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000059",
+    "type": "domain",
+    "domain": "sedesicom.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000060",
+    "type": "domain",
+    "domain": "signsolutionplano.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000061",
+    "type": "domain",
+    "domain": "sparklesmiledentalcare.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000062",
+    "type": "domain",
+    "domain": "stoolwatchers.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000063",
+    "type": "domain",
+    "domain": "tagspolymer.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000064",
+    "type": "domain",
+    "domain": "taosconstruction.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000065",
+    "type": "domain",
+    "domain": "thamilnattu.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000066",
+    "type": "domain",
+    "domain": "thingfablics.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000067",
+    "type": "domain",
+    "domain": "txpridebarbecue.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000068",
+    "type": "domain",
+    "domain": "ucsb.epciqnpzzqk.us",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000069",
+    "type": "domain",
+    "domain": "vestidosplussize.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000070",
+    "type": "domain",
+    "domain": "wedding4search.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000071",
+    "type": "domain",
+    "domain": "y-iweb.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  },
+  {
+    "rule_id": "a1b2c3d4-0001-0001-0008-000000000072",
+    "type": "domain",
+    "domain": "yyy.gratefulmailings.com",
+    "action": "delete",
+    "reason": "Single-occurrence spam domain",
+    "created_at": "2026-03-06T05:36:49",
+    "active": true
+  }
+]

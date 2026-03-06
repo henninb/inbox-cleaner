@@ -780,7 +780,7 @@ def spam_cleanup(analyze, setup_rules, dry_run, execute, limit):
                     click.echo("💡 No changes will be made (dry run mode)")
 
                 # Get all emails for rule matching
-                all_emails = db.search_emails("", limit=limit)
+                all_emails = db.search_emails("", per_page=limit)
                 active_rules = spam_rules.get_active_rules()
 
                 if not active_rules:
@@ -821,8 +821,8 @@ def spam_cleanup(analyze, setup_rules, dry_run, execute, limit):
                             message_id = email.get('message_id')
 
                             try:
-                                # Delete from Gmail
-                                service.users().messages().delete(
+                                # Move to trash in Gmail
+                                service.users().messages().trash(
                                     userId='me',
                                     id=message_id
                                 ).execute()
@@ -947,22 +947,35 @@ def create_spam_filters(analyze, create_filters, update_config, dry_run):
                 click.echo("Re-run without --dry-run to create filters")
                 return
 
-            # Create filters in Gmail
+            # Create filters in Gmail, deleting existing duplicates first
             created_count = 0
             failed_count = 0
+            deleted_count = 0
 
-            # Get existing filters to avoid duplicates
+            # Get existing filters
             existing = service.users().settings().filters().list(userId='me').execute()
             existing_filters = existing.get('filter', [])
 
-            # Use proper duplicate detection
-            non_duplicate_filters = spam_filter_manager.filter_out_duplicates(gmail_filters, existing_filters)
+            # Delete existing duplicates so updated rules are applied
+            duplicates = spam_filter_manager.identify_duplicate_filters(existing_filters + gmail_filters)
+            existing_criteria = {
+                str(sorted(f.get('criteria', {}).items()))
+                for f in gmail_filters
+            }
+            for f in existing_filters:
+                if str(sorted(f.get('criteria', {}).items())) in existing_criteria:
+                    try:
+                        service.users().settings().filters().delete(
+                            userId='me', id=f['id']
+                        ).execute()
+                        deleted_count += 1
+                    except Exception:
+                        pass
 
-            duplicates_skipped = len(gmail_filters) - len(non_duplicate_filters)
-            if duplicates_skipped > 0:
-                click.echo(f"⏭️  Skipped {duplicates_skipped} duplicate filters")
+            if deleted_count > 0:
+                click.echo(f"🗑️  Deleted {deleted_count} existing filters to replace with updated rules")
 
-            for filter_config in non_duplicate_filters:
+            for filter_config in gmail_filters:
                 try:
                     service.users().settings().filters().create(
                         userId='me',

@@ -48,7 +48,8 @@ class RetentionConfig:
             subject_parts = [f'subject:"{term}"' for term in rule.subject_contains]
             parts.append(f"({' OR '.join(subject_parts)})")
 
-        parts.append(f"older_than:{rule.retention_days}d")
+        if rule.retention_days > 0:
+            parts.append(f"older_than:{rule.retention_days}d")
         parts.append("-in:spam -in:trash")
 
         return " ".join(parts)
