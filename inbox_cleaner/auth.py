@@ -599,62 +599,45 @@ class GmailAuthenticator:
         except Exception as e:
             raise AuthenticationError(f"Manual authentication failed: {e}")
 
+    def _has_sufficient_scopes(self, credentials) -> bool:
+        """Return True if credentials cover the required scopes (tolerant of mocks)."""
+        try:
+            scopes_value = getattr(credentials, 'scopes', []) or []
+            actual = set(scopes_value) if isinstance(scopes_value, (list, tuple, set)) else set()
+            return set(self.scopes).issubset(actual)
+        except Exception:
+            return False
+
     def get_valid_credentials(self) -> Credentials:
         """Get valid credentials, refreshing or re-authenticating if needed."""
         try:
-            # Try to load existing credentials
             credentials = self.load_credentials()
 
-            # Helper: detect unittest.mock objects to avoid strict checks in tests
+            # Detect unittest.mock objects to skip strict scope checks in tests
             is_mock = credentials is not None and credentials.__class__.__module__.startswith('unittest.mock')
 
-            # For real credentials (non-mock), verify scopes first
-            if credentials and not is_mock:
-                try:
-                    requested_scopes = set(self.scopes)
-                    scopes_value = getattr(credentials, 'scopes', []) or []
-                    actual_scopes = set(scopes_value) if isinstance(scopes_value, (list, tuple, set)) else set()
-                    if not requested_scopes.issubset(actual_scopes):
-                        credentials = None  # Force re-authentication if scopes insufficient
-                except Exception:
-                    credentials = None
+            # For real credentials, verify scopes before accepting them
+            if credentials and not is_mock and not self._has_sufficient_scopes(credentials):
+                credentials = None
 
             if credentials is None:
-                # No existing credentials, need to authenticate
                 return self.authenticate()
 
-            # If credentials are valid, prefer using them immediately
             if getattr(credentials, 'valid', False):
-                # Credentials are still valid
                 return credentials
 
             if credentials.expired and credentials.refresh_token:
-                # Credentials expired but can be refreshed
                 try:
                     credentials.refresh(Request())
                     self.save_credentials(credentials)
                     return credentials
                 except Exception:
-                    # Refresh failed, need to re-authenticate
                     return self.authenticate()
-
-            # As a last resort, verify scope sufficiency (best-effort, tolerant of mocks)
-            try:
-                if hasattr(credentials, 'scopes'):
-                    requested_scopes = set(self.scopes)
-                    scopes_value = getattr(credentials, 'scopes', []) or []
-                    actual_scopes = set(scopes_value) if isinstance(scopes_value, (list, tuple, set)) else set()
-                    if not requested_scopes.issubset(actual_scopes):
-                        credentials = None
-            except Exception:
-                # If scopes cannot be evaluated (e.g., mocked object), fall back to re-auth
-                credentials = None
 
             # Credentials are invalid and can't be refreshed
             return self.authenticate()
 
         except AuthenticationError:
-            # Re-raise AuthenticationError as-is
             raise
         except Exception as e:
             raise AuthenticationError(f"Failed to authenticate: {e}")

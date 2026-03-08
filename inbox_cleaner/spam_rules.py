@@ -3,6 +3,7 @@
 import json
 import re
 import uuid
+from collections import Counter
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from pathlib import Path
@@ -17,50 +18,30 @@ class SpamRuleManager:
         self.rules: List[Dict[str, Any]] = []
         self.load_rules()
 
-    def create_domain_rule(self, domain: str, action: str, reason: str) -> Dict[str, Any]:
-        """Create a rule that matches emails from a specific domain."""
+    def _make_rule(self, rule_type: str, action: str, reason: str, **kwargs) -> Dict[str, Any]:
         rule = {
             "rule_id": str(uuid.uuid4()),
-            "type": "domain",
-            "domain": domain,
+            "type": rule_type,
             "action": action,
             "reason": reason,
             "created_at": datetime.now().isoformat(),
-            "active": True
+            "active": True,
+            **kwargs,
         }
-
         self.rules.append(rule)
         return rule
+
+    def create_domain_rule(self, domain: str, action: str, reason: str) -> Dict[str, Any]:
+        """Create a rule that matches emails from a specific domain."""
+        return self._make_rule("domain", action, reason, domain=domain)
 
     def create_subject_rule(self, pattern: str, action: str, reason: str) -> Dict[str, Any]:
         """Create a rule that matches emails by subject pattern (regex)."""
-        rule = {
-            "rule_id": str(uuid.uuid4()),
-            "type": "subject",
-            "pattern": pattern,
-            "action": action,
-            "reason": reason,
-            "created_at": datetime.now().isoformat(),
-            "active": True
-        }
-
-        self.rules.append(rule)
-        return rule
+        return self._make_rule("subject", action, reason, pattern=pattern)
 
     def create_sender_rule(self, sender_pattern: str, action: str, reason: str) -> Dict[str, Any]:
         """Create a rule that matches emails by sender pattern (regex)."""
-        rule = {
-            "rule_id": str(uuid.uuid4()),
-            "type": "sender",
-            "pattern": sender_pattern,
-            "action": action,
-            "reason": reason,
-            "created_at": datetime.now().isoformat(),
-            "active": True
-        }
-
-        self.rules.append(rule)
-        return rule
+        return self._make_rule("sender", action, reason, pattern=sender_pattern)
 
     def matches_spam_rule(self, email: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Check if an email matches any spam rule."""
@@ -156,21 +137,12 @@ class SpamRuleManager:
 
     def get_deletion_stats(self) -> Dict[str, Any]:
         """Get statistics about rules and their actions."""
-        stats = {
+        return {
             "total_rules": len(self.rules),
             "active_rules": len(self.get_active_rules()),
-            "deletion_rules": len([r for r in self.rules if r.get("action") == "delete"]),
-            "rules_by_type": {}
+            "deletion_rules": sum(1 for r in self.rules if r.get("action") == "delete"),
+            "rules_by_type": dict(Counter(r.get("type", "unknown") for r in self.rules)),
         }
-
-        # Count by type
-        for rule in self.rules:
-            rule_type = rule.get("type", "unknown")
-            if rule_type not in stats["rules_by_type"]:
-                stats["rules_by_type"][rule_type] = 0
-            stats["rules_by_type"][rule_type] += 1
-
-        return stats
 
     def create_predefined_spam_rules(self) -> List[Dict[str, Any]]:
         """Create predefined rules for common spam patterns."""
@@ -242,22 +214,10 @@ class SpamRuleManager:
 
         created_rules = []
         for rule_data in predefined_rules:
-            rule = {
-                "rule_id": str(uuid.uuid4()),
-                "type": rule_data["type"],
-                "action": rule_data["action"],
-                "reason": rule_data["reason"],
-                "created_at": datetime.now().isoformat(),
-                "active": True,
-                "predefined": True
-            }
-
-            if rule_data["type"] == "domain":
-                rule["domain"] = rule_data.get("domain")
-            else:
-                rule["pattern"] = rule_data.get("pattern")
-
-            self.rules.append(rule)
+            extra = ({"domain": rule_data["domain"]} if rule_data["type"] == "domain"
+                     else {"pattern": rule_data["pattern"]})
+            rule = self._make_rule(rule_data["type"], rule_data["action"], rule_data["reason"],
+                                   predefined=True, **extra)
             created_rules.append(rule)
 
         return created_rules

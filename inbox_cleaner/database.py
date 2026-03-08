@@ -63,28 +63,33 @@ class DatabaseManager:
         except sqlite3.Error as e:
             raise RuntimeError(f"Failed to create database tables: {e}")
 
+    _INSERT_SQL = """
+        INSERT OR REPLACE INTO emails_metadata
+        (message_id, thread_id, sender_domain, sender_hash, subject,
+         date_received, labels, snippet, content, estimated_importance, category, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    """
+
+    def _email_to_tuple(self, email: EmailMetadata) -> tuple:
+        return (
+            email.message_id, email.thread_id, email.sender_domain, email.sender_hash,
+            email.subject, email.date_received.isoformat(), json.dumps(email.labels),
+            email.snippet, email.content, email.estimated_importance, email.category,
+        )
+
+    def _parse_row(self, row) -> Dict[str, Any]:
+        result = dict(row)
+        try:
+            result['labels'] = json.loads(result['labels']) if result['labels'] else []
+        except (json.JSONDecodeError, TypeError):
+            result['labels'] = []
+        return result
+
     def insert_email(self, email: EmailMetadata) -> bool:
         """Insert email metadata into database."""
         try:
             with sqlite3.connect(self.db_path) as conn:
-                conn.execute("""
-                    INSERT OR REPLACE INTO emails_metadata
-                    (message_id, thread_id, sender_domain, sender_hash, subject,
-                     date_received, labels, snippet, content, estimated_importance, category, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                """, (
-                    email.message_id,
-                    email.thread_id,
-                    email.sender_domain,
-                    email.sender_hash,
-                    email.subject,
-                    email.date_received.isoformat(),
-                    json.dumps(email.labels),
-                    email.snippet,
-                    email.content,
-                    email.estimated_importance,
-                    email.category
-                ))
+                conn.execute(self._INSERT_SQL, self._email_to_tuple(email))
                 conn.commit()
                 return True
         except sqlite3.Error:
@@ -94,32 +99,9 @@ class DatabaseManager:
         """Insert batch of email metadata."""
         if not emails:
             return 0
-
         try:
             with sqlite3.connect(self.db_path) as conn:
-                data = []
-                for email in emails:
-                    data.append((
-                        email.message_id,
-                        email.thread_id,
-                        email.sender_domain,
-                        email.sender_hash,
-                        email.subject,
-                        email.date_received.isoformat(),
-                        json.dumps(email.labels),
-                        email.snippet,
-                        email.content,
-                        email.estimated_importance,
-                        email.category
-                    ))
-
-                cursor = conn.executemany("""
-                    INSERT OR REPLACE INTO emails_metadata
-                    (message_id, thread_id, sender_domain, sender_hash, subject,
-                     date_received, labels, snippet, content, estimated_importance, category, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                """, data)
-
+                cursor = conn.executemany(self._INSERT_SQL, [self._email_to_tuple(e) for e in emails])
                 conn.commit()
                 return cursor.rowcount
         except sqlite3.Error:
@@ -130,16 +112,10 @@ class DatabaseManager:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
-                cursor = conn.execute("""
-                    SELECT * FROM emails_metadata WHERE message_id = ?
-                """, (message_id,))
-
-                row = cursor.fetchone()
-                if row:
-                    result = dict(row)
-                    result['labels'] = json.loads(result['labels'])
-                    return result
-                return None
+                row = conn.execute(
+                    "SELECT * FROM emails_metadata WHERE message_id = ?", (message_id,)
+                ).fetchone()
+                return self._parse_row(row) if row else None
         except sqlite3.Error:
             return None
 
@@ -148,18 +124,11 @@ class DatabaseManager:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
-                cursor = conn.execute("""
-                    SELECT * FROM emails_metadata
-                    WHERE sender_domain = ?
-                    ORDER BY date_received DESC
-                """, (domain,))
-
-                results = []
-                for row in cursor.fetchall():
-                    result = dict(row)
-                    result['labels'] = json.loads(result['labels'])
-                    results.append(result)
-                return results
+                rows = conn.execute(
+                    "SELECT * FROM emails_metadata WHERE sender_domain = ? ORDER BY date_received DESC",
+                    (domain,)
+                ).fetchall()
+                return [self._parse_row(r) for r in rows]
         except sqlite3.Error:
             return []
 
@@ -168,18 +137,11 @@ class DatabaseManager:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
-                cursor = conn.execute("""
-                    SELECT * FROM emails_metadata
-                    WHERE date_received BETWEEN ? AND ?
-                    ORDER BY date_received DESC
-                """, (start_date.isoformat(), end_date.isoformat()))
-
-                results = []
-                for row in cursor.fetchall():
-                    result = dict(row)
-                    result['labels'] = json.loads(result['labels'])
-                    results.append(result)
-                return results
+                rows = conn.execute(
+                    "SELECT * FROM emails_metadata WHERE date_received BETWEEN ? AND ? ORDER BY date_received DESC",
+                    (start_date.isoformat(), end_date.isoformat())
+                ).fetchall()
+                return [self._parse_row(r) for r in rows]
         except sqlite3.Error:
             return []
 
@@ -280,24 +242,15 @@ class DatabaseManager:
             offset = (page - 1) * per_page
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
-                cursor = conn.execute(f"""
+                rows = conn.execute(f"""
                     SELECT message_id, thread_id, sender_domain, subject,
                            date_received, labels, snippet, category
                     FROM emails_metadata
                     ORDER BY {order_by}
                     LIMIT ? OFFSET ?
-                """, (per_page, offset))
-
-                results = []
-                for row in cursor.fetchall():
-                    result = dict(row)
-                    try:
-                        result['labels'] = json.loads(result['labels']) if result['labels'] else []
-                    except (json.JSONDecodeError, TypeError):
-                        result['labels'] = []
-                    results.append(result)
-                return results
-        except sqlite3.Error as e:
+                """, (per_page, offset)).fetchall()
+                return [self._parse_row(r) for r in rows]
+        except sqlite3.Error:
             return []
 
     def search_emails(self, query: str, page: int = 1, per_page: int = 50) -> List[Dict[str, Any]]:
@@ -306,24 +259,15 @@ class DatabaseManager:
             offset = (page - 1) * per_page
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
-                cursor = conn.execute("""
+                rows = conn.execute("""
                     SELECT message_id, thread_id, sender_domain, subject,
                            date_received, labels, snippet, category
                     FROM emails_metadata
                     WHERE subject LIKE ? OR snippet LIKE ? OR sender_domain LIKE ?
                     ORDER BY date_received DESC
                     LIMIT ? OFFSET ?
-                """, (f'%{query}%', f'%{query}%', f'%{query}%', per_page, offset))
-
-                results = []
-                for row in cursor.fetchall():
-                    result = dict(row)
-                    try:
-                        result['labels'] = json.loads(result['labels']) if result['labels'] else []
-                    except (json.JSONDecodeError, TypeError):
-                        result['labels'] = []
-                    results.append(result)
-                return results
+                """, (f'%{query}%', f'%{query}%', f'%{query}%', per_page, offset)).fetchall()
+                return [self._parse_row(r) for r in rows]
         except sqlite3.Error:
             return []
 

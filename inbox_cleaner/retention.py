@@ -36,7 +36,7 @@ class RetentionConfig:
         return self.rules
 
     @staticmethod
-    def generate_gmail_query(rule: "RetentionRule") -> str:
+    def generate_gmail_query(rule: "RetentionRule", newer: bool = False) -> str:
         parts = []
 
         if rule.domain:
@@ -48,8 +48,9 @@ class RetentionConfig:
             subject_parts = [f'subject:"{term}"' for term in rule.subject_contains]
             parts.append(f"({' OR '.join(subject_parts)})")
 
+        qualifier = "newer_than" if newer else "older_than"
         if rule.retention_days > 0:
-            parts.append(f"older_than:{rule.retention_days}d")
+            parts.append(f"{qualifier}:{rule.retention_days}d")
         parts.append("-in:spam -in:trash")
 
         return " ".join(parts)
@@ -97,23 +98,7 @@ class GmailRetentionManager:
         """Analyze emails that are being RETAINED (not cleaned up) based on rules."""
         retained_results = {}
         for rule in self.config.get_rules():
-            # Query for emails that are NEWER than retention days (kept emails)
-            parts = []
-
-            if rule.domain:
-                parts.append(f"from:{rule.domain}")
-            elif rule.sender:
-                parts.append(f"from:{rule.sender}")
-
-            if rule.subject_contains:
-                subject_parts = [f'subject:"{term}"' for term in rule.subject_contains]
-                parts.append(f"({' OR '.join(subject_parts)})")
-
-            # Key difference: look for NEWER emails (retained ones)
-            parts.append(f"newer_than:{rule.retention_days}d")
-            parts.append("-in:spam -in:trash")
-
-            query = " ".join(parts)
+            query = self.config.generate_gmail_query(rule, newer=True)
             response = self.service.users().messages().list(userId='me', q=query).execute()
             messages = response.get('messages', [])
 
