@@ -1,0 +1,259 @@
+# Gmail Inbox Cleaner Configuration
+# Copy this file to config.yaml and fill in your credentials
+
+gmail:
+  client_id: "gopass:gmail/brian.henning/client_id"
+  client_secret: "gopass:gmail/brian.henning/client_secret"
+  # For manual authentication in headless environments
+  redirect_uri: "http://localhost:8080"  # Required for OAuth2 flow
+  scopes:
+    - "https://www.googleapis.com/auth/gmail.readonly"
+    - "https://www.googleapis.com/auth/gmail.modify"
+    - "https://www.googleapis.com/auth/gmail.settings.basic"
+
+database:
+  path: "./inbox_cleaner.db"
+
+app:
+  batch_size: 1000
+  max_emails_per_run: 5000  # Safety limit for initial runs
+
+retention_rules:
+  - domain: "usps.com"
+    retention_days: 30
+    description: "USPS delivery notifications"
+  - domain: "hulumail.com"
+    retention_days: 30
+    description: "Hulu marketing emails"
+  - sender: "no-reply@spotify.com"
+    retention_days: 30
+    description: "Spotify notifications"
+  - sender: "support@privacy.com"
+    retention_days: 30
+    description: "Privacy.com support"
+  - domain: "accounts.google.com"
+    retention_days: 30
+    subject_contains: ["security alert", "sign-in"]
+    description: "Google security alerts"
+  - sender: "info@notifications.acorns.com"
+    retention_days: 30
+    description: "Acorns notifications"
+  - sender: "veteransaffairs@messages.va.gov"
+    retention_days: 30
+    description: "Veterans Affairs communications"
+  - sender: "usbank@notifications.usbank.com"
+    retention_days: 10
+    subject_contains: ["Here’s the security code you requested"]
+    description: "U.S. Bank security codes"
+  - domain: "onepay.com"
+    retention_days: 0
+    description: "OnePay spam - block all subdomains"
+  - sender: "admissions@wartburg.edu"
+    retention_days: 0
+    description: "Wartburg College admissions spam"
+  - domain: "webuyanycar.com"
+    retention_days: 0
+    description: "We Buy Any Car marketing - block all subdomains"
+  - domain: "email.snapchat.com"
+    retention_days: 0
+    description: "Snapchat marketing emails (keep verify.snapchat.com for security alerts)"
+  - domain: "em.adcorthoglendale.com"
+    retention_days: 0
+    description: "ADC Orthodontics Glendale marketing"
+  - sender: "mkevin@capvision.com"
+    retention_days: 0
+    description: "Capvision cold outreach spam"
+  # --- Blocked senders ---
+  - domain: "dickssportinggoods.com"
+    retention_days: 0
+    description: "Dick’s Sporting Goods - block all"
+  - domain: "dcsg.com"
+    retention_days: 0
+    description: "Dick’s Sporting Goods short domain - block all"
+  - domain: "trivago.com"
+    retention_days: 0
+    description: "Trivago - block all"
+  - domain: "carnival.com"
+    retention_days: 0
+    description: "Carnival cruise - block all"
+  - domain: "buxton.com"
+    retention_days: 0
+    description: "Buxton - block all"
+  - domain: "lore.com"
+    retention_days: 0
+    description: "LORE newsletter - block all"
+  - sender: "store-news@amazon.com"
+    retention_days: 0
+    description: "Amazon marketing newsletter"
+  - sender: "deals@amazon.com"
+    retention_days: 0
+    description: "Amazon deals marketing"
+  - sender: "no-reply@spotify.com"
+    retention_days: 0
+    subject_contains: ["months of Premium", "Spotify Premium for", "upgrade to Premium", "Get best", "free Premium"]
+    description: "Spotify Premium upsell marketing"
+  # --- Marketing brands ---
+  - domain: "orderyoyo.com"
+    retention_days: 0
+    description: "Restaurant ordering app marketing"
+  - domain: "update.one.app"
+    retention_days: 0
+    description: "One finance app marketing"
+  - domain: "nextdoor.com"
+    retention_days: 0
+    description: "Nextdoor neighborhood app marketing"
+  - domain: "golfnowone.com"
+    retention_days: 0
+    description: "GolfNow marketing"
+  - domain: "fetch.com"
+    retention_days: 0
+    description: "Fetch Rewards app marketing"
+  - domain: "walmart.com"
+    retention_days: 0
+    description: "Walmart marketing"
+  - domain: "curaleaf.com"
+    retention_days: 0
+    description: "Curaleaf dispensary marketing"
+  - domain: "doxo.com"
+    retention_days: 0
+    description: "Doxo bill pay marketing"
+  - domain: "expedia.com"
+    retention_days: 0
+    description: "Expedia marketing"
+  - domain: "directv-mail.com"
+    retention_days: 0
+    description: "DirecTV marketing"
+  - domain: "burton.com"
+    retention_days: 0
+    description: "Burton snowboards marketing"
+  - domain: "partycity.com"
+    retention_days: 0
+    description: "Party City marketing"
+  - domain: "mavistire.com"
+    retention_days: 0
+    description: "Mavis Tire marketing"
+  - domain: "goldstar.com"
+    retention_days: 0
+    description: "Goldstar entertainment deals"
+  # --- Auto dealer spam ---
+  - domain: "reyrey.net"
+    retention_days: 0
+    description: "Reynolds & Reynolds auto dealer CRM spam"
+  # --- Job spam ---
+  - domain: "valuedcareers.net"
+    retention_days: 0
+    description: "Job spam"
+  - domain: "freshcareerfinder.com"
+    retention_days: 0
+    description: "Job spam"
+  - domain: "greatomahajobs.com"
+    retention_days: 0
+    description: "Job spam"
+  - domain: "greatrichmondjobs.com"
+    retention_days: 0
+    description: "Job spam"
+  - domain: "jobbity.com"
+    retention_days: 0
+    description: "Job spam"
+  - domain: "jobuliet.net"
+    retention_days: 0
+    description: "Job spam"
+  # --- Loan/financial spam ---
+  - domain: "providecapitalaid.com"
+    retention_days: 0
+    description: "Loan spam"
+  - domain: "providecapitalassist.com"
+    retention_days: 0
+    description: "Loan spam"
+  - domain: "providecapitalvcgrp.com"
+    retention_days: 0
+    description: "Loan spam"
+  - domain: "provideequiploans.com"
+    retention_days: 0
+    description: "Loan spam"
+  - domain: "cachevalleyloan.com"
+    retention_days: 0
+    description: "Loan spam"
+  # --- Other unwanted ---
+  - domain: "bloomerang-mail.com"
+    retention_days: 0
+    description: "Nonprofit fundraising email platform"
+  - domain: "clubexpress.com"
+    retention_days: 0
+    description: "Club/org newsletter platform"
+  - domain: "copsarizona.ccsend.com"
+    retention_days: 0
+    description: "Citizens on Patrol AZ"
+  - domain: "clermontlibrary.org"
+    retention_days: 0
+    description: "Library notifications"
+  - domain: "jipijapa.net"
+    retention_days: 0
+    description: "Unknown spam domain"
+  - domain: "ivessi.net"
+    retention_days: 0
+    description: "Spam domain"
+  - domain: "winklepickertwins.com"
+    retention_days: 0
+    description: "Spam domain"
+  - domain: "pragatiairclassifier.com"
+    retention_days: 0
+    description: "Spam domain"
+  - domain: "tarifcheck-pkv-forum.de"
+    retention_days: 0
+    description: "German insurance spam"
+  - domain: "supabets.co.za"
+    retention_days: 0
+    description: "Gambling spam"
+  - domain: "lawyer.com"
+    retention_days: 0
+    description: "Lawyer referral spam"
+  - domain: "therewardwizard.com"
+    retention_days: 0
+    description: "Rewards spam"
+  - domain: "dollardns.org"
+    retention_days: 0
+    description: "Spam domain"
+  # --- .xyz spam domains ---
+  - domain: "apexbuildcorepilotsystemvital.xyz"
+    retention_days: 0
+    description: ".xyz spam"
+  - domain: "choosebestpricesbeforegonexyz.xyz"
+    retention_days: 0
+    description: ".xyz spam"
+  - domain: "coachforgepuresignalasset.xyz"
+    retention_days: 0
+    description: ".xyz spam"
+  - domain: "guildcloudbuildexpertnoble.xyz"
+    retention_days: 0
+    description: ".xyz spam"
+  - domain: "informpathpreferequitybuildweb.xyz"
+    retention_days: 0
+    description: ".xyz spam"
+  - domain: "investproidealfundnetachieve.xyz"
+    retention_days: 0
+    description: ".xyz spam"
+  - domain: "mailconversionengine.xyz"
+    retention_days: 0
+    description: ".xyz spam"
+  - domain: "meritcounselnetcloudpremium.xyz"
+    retention_days: 0
+    description: ".xyz spam"
+  - domain: "optintargetmail.xyz"
+    retention_days: 0
+    description: ".xyz spam"
+  - domain: "scalecorerevivechiefprefer.xyz"
+    retention_days: 0
+    description: ".xyz spam"
+  - domain: "searchpolicyoptionmatch.xyz"
+    retention_days: 0
+    description: ".xyz spam"
+  - domain: "teachoriginprimecorpdata.xyz"
+    retention_days: 0
+    description: ".xyz spam"
+  - domain: "trustchiefactiveaspectcreate.xyz"
+    retention_days: 0
+    description: ".xyz spam"
+  - domain: "worldsummitevolvedataselect.xyz"
+    retention_days: 0
+    description: ".xyz spam"

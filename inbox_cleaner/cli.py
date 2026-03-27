@@ -1,5 +1,6 @@
 """Command line interface for inbox cleaner."""
 
+import subprocess
 import click
 import yaml
 from pathlib import Path
@@ -14,6 +15,82 @@ from .spam_filters import SpamFilterManager
 from .retention import GmailRetentionManager, RetentionConfig
 from .sync import GmailSynchronizer
 from .filter_analytics import FilterAnalytics
+
+
+def _resolve_secret(value: str) -> str:
+    """Resolve a secret reference.
+
+    Supports:
+      gopass:<path>  — fetched via gopass (local dev)
+      env:<VAR>      — read from environment variable (containers/K8s/Podman)
+    """
+    import os
+    if value.startswith("gopass:"):
+        path = value[len("gopass:"):]
+        result = subprocess.run(
+            ["gopass", "show", "-o", path],
+            capture_output=True, text=True, check=True
+        )
+        return result.stdout.strip()
+    if value.startswith("env:"):
+        var = value[len("env:"):]
+        secret = os.environ.get(var)
+        if not secret:
+            raise ValueError(f"Environment variable '{var}' is not set")
+        return secret
+    return value
+
+
+def _resolve_config_values(obj):
+    """Recursively resolve secret references in a config dict."""
+    if isinstance(obj, dict):
+        return {k: _resolve_config_values(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_resolve_config_values(item) for item in obj]
+    if isinstance(obj, str) and (obj.startswith("gopass:") or obj.startswith("env:")):
+        return _resolve_secret(obj)
+    return obj
+
+
+def _config_from_env() -> dict:
+    """Build a minimal config dict from environment variables (for containers)."""
+    import os
+    required = {"GMAIL_CLIENT_ID": "client_id", "GMAIL_CLIENT_SECRET": "client_secret"}
+    missing = [var for var in required if not os.environ.get(var)]
+    if missing:
+        raise ValueError(
+            f"config.yaml not found and required env vars are not set: {', '.join(missing)}"
+        )
+    return {
+        "gmail": {
+            "client_id": os.environ["GMAIL_CLIENT_ID"],
+            "client_secret": os.environ["GMAIL_CLIENT_SECRET"],
+            "redirect_uri": os.environ.get("GMAIL_REDIRECT_URI", "http://localhost:8080"),
+            "scopes": [
+                "https://www.googleapis.com/auth/gmail.readonly",
+                "https://www.googleapis.com/auth/gmail.modify",
+                "https://www.googleapis.com/auth/gmail.settings.basic",
+            ],
+        },
+        "database": {"path": os.environ.get("INBOX_CLEANER_DB", "./inbox_cleaner.db")},
+        "app": {
+            "batch_size": int(os.environ.get("INBOX_CLEANER_BATCH_SIZE", 1000)),
+            "max_emails_per_run": int(os.environ.get("INBOX_CLEANER_MAX_EMAILS", 5000)),
+        },
+    }
+
+
+def load_config(path) -> dict:
+    """Load config.yaml and resolve any gopass: credential references.
+
+    Falls back to environment variables (GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET,
+    etc.) when config.yaml is absent — used in containers/K8s/Podman.
+    """
+    if not Path(path).exists():
+        return _config_from_env()
+    with open(path, 'r') as f:
+        config = yaml.safe_load(f)
+    return _resolve_config_values(config)
 
 
 @click.group()
@@ -34,12 +111,8 @@ def auth(setup, status, logout, device_flow, web_server):
     try:
         # Load configuration
         config_path = Path("config.yaml")
-        if not config_path.exists():
-            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
-            return
 
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_path)
 
         gmail_config = config['gmail']
         authenticator = GmailAuthenticator(gmail_config)
@@ -147,12 +220,8 @@ def sync(initial, batch_size, with_progress, limit, fast):
     try:
         # Load configuration
         config_path = Path("config.yaml")
-        if not config_path.exists():
-            click.echo("❌ Error: config.yaml not found")
-            return
 
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_path)
 
         gmail_config = config['gmail']
         db_path = config['database']['path']
@@ -248,12 +317,7 @@ def web(start, port, host):
         try:
             # Load configuration
             config_path = Path("config.yaml")
-            if not config_path.exists():
-                click.echo("❌ Error: config.yaml not found")
-                return
-
-            with open(config_path, 'r') as f:
-                config = yaml.safe_load(f)
+            config = load_config(config_path)
 
             db_path = config['database']['path']
 
@@ -301,8 +365,7 @@ def status():
 
     # Authentication
     try:
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_path)
         gmail_config = config['gmail']
         authenticator = GmailAuthenticator(gmail_config)
         credentials = authenticator.load_credentials()
@@ -316,8 +379,7 @@ def status():
 
     # Database
     try:
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_path)
         db_path = config['database']['path']
 
         if Path(db_path).exists():
@@ -353,12 +415,8 @@ def apply_filters(dry_run, execute):
     try:
         # Load configuration
         config_path = Path("config.yaml")
-        if not config_path.exists():
-            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
-            return
 
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_path)
 
         gmail_config = config['gmail']
         db_path = config['database']['path']
@@ -408,12 +466,8 @@ def list_filters():
     try:
         # Load configuration
         config_path = Path("config.yaml")
-        if not config_path.exists():
-            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
-            raise click.ClickException("config.yaml not found")
 
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_path)
 
         gmail_config = config['gmail']
         db_path = config['database']['path']
@@ -526,12 +580,8 @@ def delete_emails(domain, dry_run, execute):
     try:
         # Load configuration
         config_path = Path("config.yaml")
-        if not config_path.exists():
-            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
-            return
 
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_path)
 
         gmail_config = config['gmail']
         db_path = config['database']['path']
@@ -605,12 +655,8 @@ def find_unsubscribe(domain):
     try:
         # Load configuration
         config_path = Path("config.yaml")
-        if not config_path.exists():
-            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
-            return
 
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_path)
 
         gmail_config = config['gmail']
         db_path = config['database']['path']
@@ -669,12 +715,8 @@ def spam_cleanup(analyze, setup_rules, dry_run, execute, limit):
     try:
         # Load configuration
         config_path = Path("config.yaml")
-        if not config_path.exists():
-            click.echo("❌ Error: config.yaml not found")
-            return
 
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_path)
 
         gmail_config = config['gmail']
         db_path = config['database']['path']
@@ -858,12 +900,8 @@ def create_spam_filters(analyze, create_filters, update_config, dry_run):
     try:
         # Load configuration
         config_path = Path("config.yaml")
-        if not config_path.exists():
-            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
-            return
 
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_path)
 
         db_path = config['database']['path']
         gmail_config = config['gmail']
@@ -1036,11 +1074,7 @@ def mark_read(query, batch_size, limit, inbox_only, include_spam_trash, execute)
     """Mark Gmail messages as read by removing the UNREAD label."""
     try:
         config_path = Path("config.yaml")
-        if not config_path.exists():
-            click.echo("❌ Error: config.yaml not found")
-            return
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_path)
         gmail_config = config['gmail']
         authenticator = GmailAuthenticator(gmail_config)
         click.echo("🔐 Getting credentials...")
@@ -1119,12 +1153,8 @@ def retention(analyze, cleanup, config_path_override, override, dry_run, show_re
 
         # Load configuration
         config_path = Path(config_path_override) if config_path_override else Path("config.yaml")
-        if not config_path.exists():
-            click.echo("❌ Error: config.yaml not found.")
-            return
 
-        with open(config_path, 'r') as f:
-            config_data = yaml.safe_load(f)
+        config_data = load_config(config_path)
 
         # Parse overrides
         overrides_dict = {}
@@ -1185,12 +1215,8 @@ def cleanup_filters(dry_run, execute, optimize):
     try:
         # Load configuration
         config_path = Path("config.yaml")
-        if not config_path.exists():
-            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
-            return
 
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_path)
 
         gmail_config = config['gmail']
         db_path = config['database']['path']
@@ -1323,12 +1349,8 @@ def export_filters(filename):
     try:
         # Load configuration
         config_path = Path("config.yaml")
-        if not config_path.exists():
-            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
-            return
 
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_path)
 
         gmail_config = config['gmail']
         db_path = config['database']['path']
@@ -1392,12 +1414,8 @@ def filter_analytics(efficiency, duplicates, optimizations, performance, report,
     try:
         # Load configuration
         config_path = Path("config.yaml")
-        if not config_path.exists():
-            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
-            return
 
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_path)
 
         gmail_config = config['gmail']
         db_path = config['database']['path']
@@ -1559,12 +1577,8 @@ def filter_usage(track, stats, unused, effectiveness, days):
     try:
         # Load configuration
         config_path = Path("config.yaml")
-        if not config_path.exists():
-            click.echo("❌ Error: config.yaml not found. Please create it from config.yaml.example")
-            return
 
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        config = load_config(config_path)
 
         gmail_config = config['gmail']
         db_path = config['database']['path']
