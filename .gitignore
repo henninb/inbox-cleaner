@@ -73,3 +73,6 @@ fix_oauth_scopes.md
 *.xml
 *.db
 gmail_credentials.json
+
+# Claude Code local settings
+.claude/settings.local.json
